@@ -1,0 +1,11 @@
+/home/carlos/Dropbox/projects/github/Notes/spatial_exercises/nearest_neighbour/knn_rust/target/debug/deps/approx-e12393997a2a05bd.rmeta: /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/lib.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/abs_diff_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/relative_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/ulps_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/macros.rs
+
+/home/carlos/Dropbox/projects/github/Notes/spatial_exercises/nearest_neighbour/knn_rust/target/debug/deps/libapprox-e12393997a2a05bd.rlib: /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/lib.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/abs_diff_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/relative_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/ulps_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/macros.rs
+
+/home/carlos/Dropbox/projects/github/Notes/spatial_exercises/nearest_neighbour/knn_rust/target/debug/deps/approx-e12393997a2a05bd.d: /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/lib.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/abs_diff_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/relative_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/ulps_eq.rs /home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/macros.rs
+
+/home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/lib.rs:
+/home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/abs_diff_eq.rs:
+/home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/relative_eq.rs:
+/home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/ulps_eq.rs:
+/home/carlos/.cargo/registry/src/github.com-1ecc6299db9ec823/approx-0.5.1/src/macros.rs:

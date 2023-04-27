@@ -1,0 +1,1 @@
+/home/carlos/Dropbox/projects/github/Notes/spatial_exercises/nearest_neighbour/knn_rust/target/release/knn_rust: /home/carlos/Dropbox/projects/github/Notes/spatial_exercises/nearest_neighbour/knn_rust/src/main.rs
