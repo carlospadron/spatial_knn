@@ -13,6 +13,11 @@ When to use what:
 	- the data does not fit the memory
 	- you plan to use many other tables already present in the database
 	- you plan to write very complex queries
+- BigQuery
+	- all the reasons from SQL point
+	- you want a very fast result or your data is massive
+	- you are happy to use geographical coordinates
+	- you are also happy with rewriting your query to fit BigQuery SQL standards	
 - Pygeos:
 	- You don't want to use Geopandas and you want to speed up things and stay within Python
 - Shapely 
@@ -25,5 +30,7 @@ When to use what:
 	- you need to solve your KNN problem very very fast
 - Pyspark
 	- your data is massive and needs to be spread on different clusters
+
+
 	
 
