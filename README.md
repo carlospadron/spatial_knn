@@ -26,11 +26,8 @@ When to use what:
 	- the data fits the memory
 	- you need to write a complex program of which KNN is just a part and you need it to run fast
 - Rust 
-	- the data fits the memory
-	- you need to solve your KNN problem very very fast
+	- all the reasons in Scala/Kotlin point
+	- Scala/Kotlin wasn't wast enough
+	- you are happy to deal with a reduced universe of libraries
 - Pyspark
 	- your data is massive and needs to be spread on different clusters
-
-
-	
-
