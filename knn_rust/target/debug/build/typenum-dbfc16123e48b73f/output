@@ -1,2 +1,0 @@
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/carlos/Dropbox/projects/github/Notes/spatial_exercises/nearest_neighbour/knn_rust/target/debug/build/typenum-dbfc16123e48b73f/out/consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=/home/carlos/Dropbox/projects/github/Notes/spatial_exercises/nearest_neighbour/knn_rust/target/debug/build/typenum-dbfc16123e48b73f/out/op.rs
