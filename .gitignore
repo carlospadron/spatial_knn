@@ -1,1 +1,5 @@
 knn_scala/project/target/*
+knn_rust/target/*
+knn_scala/.idea/*
+knn_scala/project/*
+knn_scala/target/*
