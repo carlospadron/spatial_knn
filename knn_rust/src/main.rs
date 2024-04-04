@@ -1,10 +1,10 @@
 use std::io;
 use postgres::{Client, NoTls};
 use wkt::TryFromWkt;
-use geo::{Point, LineString};
+use geo::Point;
 use geo::EuclideanDistance;
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::error::Error;
 use csv::Writer;
 use rstar::RTree;

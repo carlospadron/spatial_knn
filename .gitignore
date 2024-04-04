@@ -3,3 +3,10 @@ knn_rust/target/*
 knn_scala/.idea/*
 knn_scala/project/*
 knn_scala/target/*
+knn_kotlin/.idea/*
+.metals/*
+redshift_result.csv
+knn_scala/scala_tree.csv
+knn_scala/scala_all_vs_all.csv
+knn_rust/rust_all_vs_all.csv
+knn_rust/rust_tree.csv
