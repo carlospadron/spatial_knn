@@ -12,3 +12,5 @@ knn_rust/rust_all_vs_all.csv
 knn_rust/rust_tree.csv
 knn_kotlin/lib/*
 knn_kotlin/kotlin_all_vs_all.csv
+knn_scala/scala_all_vs_all.csv
+knn_kotlin/kotlin_tree.csv
