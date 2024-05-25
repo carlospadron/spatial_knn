@@ -17,12 +17,17 @@ When to use what:
 - Redshift (PAID SERVICE)
 	- all the reasons from SQL point
 	- you want a very fast result or your data is massive
-	- you are also happy with rewriting your query to fit BigQuery SQL standards			
+	- you are also happy with rewriting your query to fit Redshift SQL standards			
 - BigQuery (PAID SERVICE)
 	- all the reasons from SQL point
 	- you want a very fast result or your data is massive
 	- you are happy to use geographical coordinates
 	- you are also happy with rewriting your query to fit BigQuery SQL standards	
+- Athena
+	- all the reasons from SQL point
+	- your data is massive
+	- you are also happy with rewriting your query to fit Athena SQL standards
+	- you are ok with execution times similar to postgres, if the data fits postgres
 - Shapely 
 	- You don't want to use Geopandas and you want to stay within Python
 - Scala/Kotlin
