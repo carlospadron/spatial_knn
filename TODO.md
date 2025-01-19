@@ -1,0 +1,4 @@
+- redo with larger dataset
+- add databricks/mosaic
+- run GBQ, Snowflake and Databricks from notebook
+- improve sedona
