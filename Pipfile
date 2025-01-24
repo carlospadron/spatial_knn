@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 geopandas = "*"
 sqlalchemy = "*"
+ipykernel = "*"
+psycopg2-binary = "*"
 
 [dev-packages]
 
