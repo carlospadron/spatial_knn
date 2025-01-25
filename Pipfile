@@ -8,6 +8,8 @@ geopandas = "*"
 sqlalchemy = "*"
 ipykernel = "*"
 psycopg2-binary = "*"
+apache-sedona = {extras = ["spark"], version = "*"}
+scikit-learn = "*"
 
 [dev-packages]
 
