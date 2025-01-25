@@ -1,5 +1,5 @@
 - improve sedona DONE
-- move sql test to aurora
+- move sql test to cloud DONE
 - add azure sql
 - add databricks/mosaic
 - add duckdb
