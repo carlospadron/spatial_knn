@@ -10,6 +10,7 @@ ipykernel = "*"
 psycopg2-binary = "*"
 apache-sedona = {extras = ["spark"], version = "*"}
 scikit-learn = "*"
+setuptools = "*"
 
 [dev-packages]
 

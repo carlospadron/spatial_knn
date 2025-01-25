@@ -1,5 +1,7 @@
+- improve sedona DONE
+- move sql test to aurora
 - add azure sql
 - add databricks/mosaic
 - add duckdb
 - run GBQ, Snowflake and Databricks from notebook
-- improve sedona
+- try geomesa
