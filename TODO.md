@@ -1,7 +1,8 @@
 - improve sedona DONE
 - move sql test to cloud DONE
-- add azure sql
-- add databricks/mosaic
+- add azure sql DONE
+- add databricks/mosaic DONE
+- try again with geometries
 - add duckdb
 - run GBQ, Snowflake and Databricks from notebook
 - try geomesa
