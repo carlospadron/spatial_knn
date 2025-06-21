@@ -29,7 +29,7 @@ uprn = uprn.withColumn("X_COORDINATE", col("X_COORDINATE").cast("double")) \
 # %%
 # Read local authorities and codepoint from GeoPackage
 local_auth = spark.read.format("geopackage").option("tableName", "district_borough_unitary").load("data/bdline_gb.gpkg")
-#codepoint = spark.read.format("geopackage").load("data/codepo_gb.gpkg")
+codepoint = spark.read.format("geopackage").option("tableName", "codepoint").load("data/codepo_gb.gpkg")
 
 # %%
 # Create geometry for UPRN points
@@ -73,3 +73,5 @@ cp_wh = cp_wh.withColumnRenamed("geometry", "geom")
 # Write output as ORC
 uprn_wh.write.mode("overwrite").orc("data/open_uprn_white_horse.orc")
 cp_wh.write.mode("overwrite").orc("data/code_point_open_white_horse.orc")
+
+# %%
