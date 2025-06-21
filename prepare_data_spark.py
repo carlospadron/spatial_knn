@@ -11,8 +11,8 @@ config = (
     .builder()
     .master("local[*]")
     .config('spark.jars.packages',
-            'org.apache.sedona:sedona-spark-3.3_2.12:1.7.0,'
-            'org.datasyslab:geotools-wrapper:1.7.0-28.5')
+            'org.apache.sedona:sedona-spark-3.5_2.12:1.7.2,'
+            'org.datasyslab:geotools-wrapper:1.7.2-28.5')
     .config('spark.jars.repositories', 'https://artifacts.unidata.ucar.edu/repository/unidata-all')
     .config("spark.executor.memory", "12g")
     .config("spark.driver.memory", "12g")
