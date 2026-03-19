@@ -4,14 +4,17 @@ using NetTopologySuite.Index.Strtree;
 using NetTopologySuite.IO;
 using Npgsql;
 
-Console.WriteLine("db user");
-var user = Console.ReadLine()!;
-Console.WriteLine("bd password");
-var pass = Console.ReadLine()!;
+var env = File.ReadAllLines(".env")
+    .Where(l => !string.IsNullOrWhiteSpace(l) && !l.StartsWith('#'))
+    .Select(l => l.Split('=', 2))
+    .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
+
+var user = env["DB_USER"];
+var pass = env["DB_PASSWORD"];
 
 var db = new DbManager(user, pass, "localhost", "gis");
-var sql1 = """SELECT "UPRN" id, ST_AsText(geom) geom FROM os.open_uprn_white_horse""";
-var sql2 = """SELECT "postcode" id, ST_AsText(geom) geom FROM os.code_point_open_white_horse""";
+var sql1 = """SELECT uprn::text id, ST_AsText(geom) geom FROM os.open_uprn_white_horse""";
+var sql2 = """SELECT postcode id, ST_AsText(geom) geom FROM os.code_point_open_white_horse""";
 
 var uprn = db.GetTable(sql1);
 var codepoint = db.GetTable(sql2);
