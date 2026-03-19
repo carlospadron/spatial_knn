@@ -19,7 +19,7 @@ config = (
     .config(
         'spark.jars.packages',
         'org.postgresql:postgresql:42.7.5,'
-        'org.apache.sedona:sedona-spark-3.3_2.12:1.7.0,'
+        'org.apache.sedona:sedona-spark-3.5_2.12:1.7.0,'
         'org.datasyslab:geotools-wrapper:1.7.0-28.5',
     )
     .config('spark.jars.repositories', 'https://artifacts.unidata.ucar.edu/repository/unidata-all')
