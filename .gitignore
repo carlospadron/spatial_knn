@@ -13,7 +13,7 @@ knn_kotlin/lib/*
 #results
 *_tree.csv
 *_all_vs_all.csv
-redshift_result.csv
+*result.csv
 
 #env
 .env
