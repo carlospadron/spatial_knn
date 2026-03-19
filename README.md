@@ -1,9 +1,24 @@
 # spatial_knn
-A compilation of solutions for the KNN problem.
+A compilation of solutions for the KNN (K-Nearest Neighbours) problem applied to spatial data.
 
-See notebook for speed comparison.
+See the notebook for a speed comparison across methods.
 
-When to use what:
+## Local Setup
+
+A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based tests locally.
+
+**Requirements:** Docker and Docker Compose.
+
+1. Copy the environment file and adjust credentials if needed:
+   ```bash
+   cp .env.example .env
+   ```
+2. Start the database:
+   ```bash
+   docker compose up -d
+   ```
+
+## When to use what
 - Geopandas: 
 	- the data fits the memory
 	- you don't plan to do complex queries.
