@@ -39,7 +39,11 @@ When to use what:
 	- you need to write a complex program of which KNN is just a part and you need it to run fast
 - Rust 
 	- all the reasons in Scala/Kotlin point
-	- Scala/Kotlin wasn't wast enough
+	- Scala/Kotlin wasn't fast enough
 	- you are happy to deal with a reduced universe of libraries
+- C# (.NET / NetTopologySuite)
+	- all the reasons in Scala/Kotlin point
+	- you are already working in the .NET ecosystem
+	- you want idiomatic C# code with LINQ and NetTopologySuite (the JVM JTS equivalent)
 - Pyspark
 	- your data is massive and needs to be spread on different clusters
