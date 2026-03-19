@@ -24,14 +24,20 @@ t1 = pd.Timestamp.now()
 uprn_xy = list(zip(uprn.geometry.x, uprn.geometry.y))
 codep_xy = list(zip(codepoint.geometry.x, codepoint.geometry.y))
 
-neigh = NearestNeighbors(n_neighbors=1, radius=5000)
+neigh = NearestNeighbors(n_neighbors=5, radius=5000)
 neigh.fit(codep_xy)
 distances, indices = neigh.kneighbors(uprn_xy)
 
-knn = uprn[['uprn']].assign(
-    destination=codepoint.iloc[[i[0] for i in indices]]['postcode'].to_list(),
-    distance=distances,
-).rename(columns={'uprn': 'origin'})
+knn = pd.DataFrame({
+    'origin': uprn['uprn'].repeat(5).to_list(),
+    'destination': [codepoint.iloc[i]['postcode'] for row in indices for i in row],
+    'distance': [d for row in distances for d in row],
+})
+knn['distance'] = knn['distance'].round(2)
+knn = (
+    knn.sort_values(['origin', 'distance', 'destination'])
+    .drop_duplicates(subset='origin')
+)
 
 t2 = pd.Timestamp.now()
 
