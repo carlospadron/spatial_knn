@@ -3,7 +3,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import sedonadb
+from sedona.db import SedonaDB
 from sqlalchemy import create_engine
 
 user = os.getenv("DB_USER")
@@ -13,7 +13,7 @@ port = os.getenv("DB_PORT", "5432")
 database = os.getenv("DB_NAME", "gis")
 engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
 
-sd = sedonadb.connect()
+sd = SedonaDB.connect()
 
 # Load data outside the timed section (consistent with other scripts)
 uprn = gpd.read_postgis(
