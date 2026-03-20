@@ -379,8 +379,8 @@ results = [
     {'test' : 'rust strtree', 'time': pd.Timedelta('0 days 00:00:00.346612')},
     {'test' : 'C# all vs all', 'time': pd.Timedelta('0 days 00:00:22.904955')},
     {'test' : 'C# strtree', 'time': pd.Timedelta('0 days 00:00:05.894800')},
-    {'test' : 'Go all vs all', 'time': pd.Timedelta('0 days 00:00:00')},  # TODO: update with actual time
-    {'test' : 'Go strtree', 'time': pd.Timedelta('0 days 00:00:00')},  # TODO: update with actual time
+    {'test' : 'Go all vs all', 'time': pd.Timedelta('0 days 00:00:00.916740')},
+    {'test' : 'Go strtree', 'time': pd.Timedelta('0 days 00:00:00.321024')},
     {'test' : 'DuckDB', 'time': pd.Timedelta('0 days 00:00:17.465032')},
     {'test' : 'SedonaDB', 'time': pd.Timedelta('0 days 00:00:00.438286')},
     {'test' : 'BigQuery', 'time': pd.Timedelta('0 days 00:00:03')},
@@ -394,6 +394,30 @@ results = [
 
 
 # %%
-pd.DataFrame(results).sort_values('time').drop_duplicates().reset_index(drop = True)
+df = pd.DataFrame(results).sort_values('time').drop_duplicates().reset_index(drop=True)
+
+# Write styled HTML for notebook viewing
+styled = df.style.background_gradient(subset=['time'], cmap='RdYlGn_r')
+with open('results.html', 'w') as f:
+    f.write(styled.to_html())
+
+# Write markdown table into README.md between markers
+df_md = df.copy()
+df_md['time'] = df_md['time'].apply(lambda t: str(t).split('.')[-1] if t.total_seconds() < 60 else f"{t.total_seconds():.0f}s")
+md_table = df_md.to_markdown(index=False)
+readme = open('README.md').read()
+marker_start = '<!-- RESULTS_START -->'
+marker_end = '<!-- RESULTS_END -->'
+new_section = f"{marker_start}\n## Results\n\n{md_table}\n{marker_end}"
+if marker_start in readme:
+    import re
+    readme = re.sub(f"{marker_start}.*?{marker_end}", new_section, readme, flags=re.DOTALL)
+else:
+    readme = readme.rstrip() + '\n\n' + new_section + '\n'
+open('README.md', 'w').write(readme)
+
+styled
 
 
+
+# %%

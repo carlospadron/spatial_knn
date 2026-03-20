@@ -1,3 +1,0 @@
-- add duckdb
-- add go
-- rewrite doc. Explain that sklearn could be faster if used only one neighbour but the results wouldn't match the others as it won't be able to sort tied postcodes
