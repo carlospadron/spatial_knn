@@ -27,24 +27,34 @@ con.execute("""
     SELECT postcode, geom FROM pg.os.code_point_open_white_horse
 """)
 
-# R-tree index enables fast KNN lookup without full scan
+# R-tree index accelerates bounding-box joins (&&); DuckDB does NOT use it for
+# ORDER BY ST_Distance LIMIT 1 (no KNN traversal), so we avoid LATERAL entirely.
 con.execute("CREATE INDEX codepoint_rtree ON codepoint USING RTREE (geom)")
 
 t1 = pd.Timestamp.now()
 
 con.execute("""
     COPY (
-        SELECT
-            u.uprn      AS origin,
-            c.postcode  AS destination,
-            ST_Distance(u.geom, c.geom) AS distance
-        FROM uprn u
-        CROSS JOIN LATERAL (
-            SELECT postcode, geom
-            FROM codepoint
-            ORDER BY ST_Distance(u.geom, geom), postcode
-            LIMIT 1
-        ) c
+        WITH candidates AS (
+            SELECT
+                u.uprn,
+                c.postcode,
+                ST_Distance(u.geom, c.geom) AS distance
+            FROM uprn u
+            JOIN codepoint c ON c.geom && ST_Expand(u.geom, 5000)
+        ),
+        ranked AS (
+            SELECT
+                uprn,
+                postcode AS destination,
+                distance,
+                row_number() OVER (
+                    PARTITION BY uprn
+                    ORDER BY distance, postcode
+                ) AS rn
+            FROM candidates
+        )
+        SELECT uprn AS origin, destination, distance FROM ranked WHERE rn = 1
     ) TO 'python/duckdb/result.csv' (HEADER, DELIMITER ',');
 """)
 
