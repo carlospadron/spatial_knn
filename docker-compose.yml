@@ -14,7 +14,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   sedona:
-    image: apache/sedona:latest
+    build:
+      context: .
+      dockerfile: sedona.Dockerfile
     container_name: spatial_knn_sedona
     depends_on:
       - postgres
