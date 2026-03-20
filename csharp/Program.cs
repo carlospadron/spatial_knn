@@ -75,7 +75,7 @@ static void SaveCsv(Dictionary<string, (string, double)> table, string name)
     using var writer = new StreamWriter(name);
     writer.WriteLine("origin,destination,distance");
     foreach (var (key, (dest, dist)) in table)
-        writer.WriteLine($"{key}, \"{dest}\", {dist}");
+        writer.WriteLine(FormattableString.Invariant($"{key},\"{dest}\",{dist}"));
 }
 
 class DbManager(string user, string pass, string host, string db)
