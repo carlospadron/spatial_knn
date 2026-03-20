@@ -1,8 +1,4 @@
-- improve sedona DONE
-- move sql test to cloud DONE
-- add azure sql DONE
-- add databricks/mosaic DONE
-- try again with geometries
+- run sklearn twice, just one value and just comparing distance
+- run sedona and kotlin in docker
 - add duckdb
-- run GBQ, Snowflake and Databricks from notebook
-- try geomesa
+- add sedonadb

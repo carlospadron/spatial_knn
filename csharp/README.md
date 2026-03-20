@@ -1,1 +1,1 @@
-dotnet run --project knn_csharp
+dotnet run --project csharp

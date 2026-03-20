@@ -11,9 +11,10 @@ class DbManager(
     user: String,
     pass: String,
     host: String,
+    port: String,
     db: String
 ) {
-    private val connectionUrl = "jdbc:postgresql://$host/$db?user=$user&password=$pass"
+    private val connectionUrl = "jdbc:postgresql://$host:$port/$db?user=$user&password=$pass"
 
     fun getTable(sql: String): Map<String, Geometry> {
         val geom = mutableMapOf<String, Geometry>()
@@ -76,12 +77,13 @@ fun saveCsv(table: Map<String, Pair<String?, Double>>, name: String) {
 }
 
 fun main() {
-    println("db user")
-    val user = readln()
-    println("bd password")
-    val pass = readln()
+    val user = System.getenv("DB_USER") ?: "postgres"
+    val pass = System.getenv("DB_PASSWORD") ?: ""
+    val host = System.getenv("DB_HOST") ?: "localhost"
+    val port = System.getenv("DB_PORT") ?: "5432"
+    val dbName = System.getenv("DB_NAME") ?: "gis"
 
-    val db = DbManager(user, pass, "localhost", "gis")
+    val db = DbManager(user, pass, host, port, dbName)
     val sql1 = """SELECT "UPRN" id, ST_AsText(geom) geom FROM os.open_uprn_white_horse"""
     val sql2 = """SELECT "postcode" id, ST_AsText(geom) geom FROM os.code_point_open_white_horse"""
 
@@ -89,15 +91,14 @@ fun main() {
     val codepoint = db.getTable(sql2)
 
     val startTime = System.currentTimeMillis()
-    val out1 = nearestNeighbour(uprn, codepoint) //22sec
+    val out1 = nearestNeighbour(uprn, codepoint)
     val endTime = System.currentTimeMillis()
     saveCsv(out1, "kotlin_all_vs_all.csv")
+    println("all vs all: ${endTime - startTime}ms")
 
-    println(startTime - endTime)
     val startTime2 = System.currentTimeMillis()
-    val out2 = nearestNeighbour2(uprn, codepoint) //3.6sec
+    val out2 = nearestNeighbour2(uprn, codepoint)
     val endTime2 = System.currentTimeMillis()
     saveCsv(out2, "kotlin_tree.csv")
-
-    println(startTime2 - endTime2)
+    println("strtree: ${endTime2 - startTime2}ms")
 }
