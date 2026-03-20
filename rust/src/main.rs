@@ -1,4 +1,3 @@
-use std::io;
 use postgres::{Client, NoTls};
 use wkt::TryFromWkt;
 use geo::Point;
@@ -41,14 +40,15 @@ fn nearest_neighbour(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Poi
         |(uprn, point1)| {
             let min = geomb.iter().min_by(
                 |(postcode, point2), (postcode2, point22)| {
-                    let dista = point1.euclidean_distance(point2.clone());
-                    let distb = point1.euclidean_distance(point22.clone());
+                    let dista = point1.euclidean_distance(*point2);
+                    let distb = point1.euclidean_distance(*point22);
                     (dista, postcode).partial_cmp(&(distb, &postcode2)).unwrap()
                 }).unwrap();
             (uprn.clone(), (min.0.clone(), point1.euclidean_distance(min.1)))
         }
     ).collect()
 }
+
 fn nearest_neighbour2(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Point>) -> HashMap<String, (String, f64)>
 {
     let geomb2 = geomb.clone();
@@ -56,22 +56,22 @@ fn nearest_neighbour2(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Po
     geoma.iter().map(
         |(uprn, point)| {
             let nearest = tree_a.nearest_neighbors(&point);
-            let postcodes: Vec<(&String)> = nearest.iter().map(
+            let postcodes: Vec<&String> = nearest.iter().map(
                 |point2|
                     geomb
                         .iter()
-                        .find(|(s, p)| p==point2)
+                        .find(|(_s, p)| p == point2)
                         .unwrap()
                         .0
             ).collect();
 
-            let postcode = postcodes.iter().min().unwrap().clone();
+            let postcode = *postcodes.iter().min().unwrap();
             (uprn.clone(), (postcode.clone(), point.euclidean_distance(geomb.get(postcode).unwrap())))
         }
     ).collect()
 }
 
-fn writeCsv(output: HashMap<String, (String, f64)>, path: String) -> Result<(), Box<dyn Error>> {
+fn write_csv(output: HashMap<String, (String, f64)>, path: String) -> Result<(), Box<dyn Error>> {
     let mut wtr = Writer::from_path(path)?;
 
     wtr.write_record(&["origin", "destination", "distance"])?;
@@ -86,30 +86,25 @@ fn writeCsv(output: HashMap<String, (String, f64)>, path: String) -> Result<(), 
 }
 
 fn main() {
-    let mut user = String::new();
-    let mut password = String::new();
+    let user = std::env::var("DB_USER").unwrap_or_else(|_| "postgres".to_string());
+    let password = std::env::var("DB_PASSWORD").unwrap_or_else(|_| "".to_string());
+    let host = std::env::var("DB_HOST").unwrap_or_else(|_| "localhost".to_string());
+    let db = std::env::var("DB_NAME").unwrap_or_else(|_| "gis".to_string());
 
-    println!("user");
-    io::stdin().read_line(&mut user).unwrap();
-    println!("password");
-    io::stdin().read_line(&mut password).unwrap();
-
-    let host = "localhost";
-    let db = "gis";
-    let sql = "SELECT \"UPRN\"::text, ST_AsText(geom) FROM os.open_uprn_white_horse";
+    let sql = "SELECT uprn::text, ST_AsText(geom) FROM os.open_uprn_white_horse";
     let uprn = db_manager(&user, &password, &host, &db, &sql);
-    let sql = "SELECT \"postcode\", ST_AsText(geom) FROM os.code_point_open_white_horse ";
-    let codepoint = db_manager(&user, &password, &host, &db, &sql);    
+    let sql = "SELECT postcode, ST_AsText(geom) FROM os.code_point_open_white_horse";
+    let codepoint = db_manager(&user, &password, &host, &db, &sql);
 
     let start = Instant::now();
     let output = nearest_neighbour(&uprn, &codepoint);
     let duration = start.elapsed();
-    writeCsv(output, "rust_all_vs_all.csv".to_owned());
+    write_csv(output, "rust_all_vs_all.csv".to_owned()).unwrap();
     println!("Time elapsed is: {:?}", duration);
 
     let start = Instant::now();
     let output = nearest_neighbour2(&uprn, &codepoint);
     let duration = start.elapsed();
-    writeCsv(output, "rust_tree.csv".to_owned());
+    write_csv(output, "rust_tree.csv".to_owned()).unwrap();
     println!("Time elapsed is: {:?}", duration);
 }
