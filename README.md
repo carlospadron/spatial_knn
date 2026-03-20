@@ -51,7 +51,7 @@ All solutions can be run via `main.py`, which is a Jupyter-style notebook (using
 |:-------------------------------|:-----------------------|
 | Go strtree                     | 0 days 00:00:00.321024 |
 | rust strtree                   | 0 days 00:00:00.346612 |
-| SedonaDB                       | 0 days 00:00:00.438286 |
+| SedonaDB                       | 0 days 00:00:00.750684 |
 | Go all vs all                  | 0 days 00:00:00.916740 |
 | Shapely strtree                | 0 days 00:00:01.319851 |
 | Geopandas sjoin_nearest        | 0 days 00:00:01.791905 |

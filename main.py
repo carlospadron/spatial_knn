@@ -407,7 +407,7 @@ results = [
     {"test": "Go all vs all", "time": pd.Timedelta("0 days 00:00:00.916740")},
     {"test": "Go strtree", "time": pd.Timedelta("0 days 00:00:00.321024")},
     {"test": "DuckDB", "time": pd.Timedelta("0 days 00:00:17.465032")},
-    {"test": "SedonaDB", "time": pd.Timedelta("0 days 00:00:00.438286")},
+    {"test": "SedonaDB", "time": pd.Timedelta("0 days 00:00:00.750684")},
     {"test": "BigQuery", "time": pd.Timedelta("0 days 00:00:03")},
     {"test": "BigQuery (Slot time consumed)", "time": pd.Timedelta("0 days 00:05:10")},
     {"test": "RedShift", "time": pd.Timedelta("0 days 00:00:26")},
