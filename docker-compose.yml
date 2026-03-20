@@ -30,5 +30,45 @@ services:
       - .:/home/jovyan/work
     working_dir: /home/jovyan/work
 
+  kotlin:
+    image: maven:3-eclipse-temurin-21
+    container_name: spatial_knn_kotlin
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - maven_cache:/root/.m2
+    working_dir: /workspace/kotlin
+
+  scala:
+    image: sbtscala/scala-sbt
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - sbt_cache:/root/.cache
+    working_dir: /workspace/scala
+
+  rust:
+    image: rust:1
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - cargo_cache:/usr/local/cargo/registry
+    working_dir: /workspace/rust
+
 volumes:
   postgres_data:
+  maven_cache:
+  sbt_cache:
+  cargo_cache:

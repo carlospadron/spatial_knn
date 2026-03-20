@@ -3,6 +3,7 @@ import org.locationtech.jts.index.strtree.GeometryItemDistance
 import org.locationtech.jts.index.strtree.STRtree
 import org.locationtech.jts.io.WKTReader
 import java.io.File
+import java.util.Locale
 import java.sql.DriverManager
 import java.sql.SQLException
 
@@ -70,7 +71,7 @@ fun saveCsv(table: Map<String, Pair<String?, Double>>, name: String) {
     writer.write("""origin,destination,distance""")
     writer.newLine()
     table.forEach {
-        writer.write("""${it.key}, "${it.value.first}", ${it.value.second}""")
+        writer.write("${it.key},\"${it.value.first}\",${String.format(Locale.US, "%f", it.value.second)}")
         writer.newLine()
     }
     writer.flush()
@@ -84,8 +85,8 @@ fun main() {
     val dbName = System.getenv("DB_NAME") ?: "gis"
 
     val db = DbManager(user, pass, host, port, dbName)
-    val sql1 = """SELECT "UPRN" id, ST_AsText(geom) geom FROM os.open_uprn_white_horse"""
-    val sql2 = """SELECT "postcode" id, ST_AsText(geom) geom FROM os.code_point_open_white_horse"""
+    val sql1 = """SELECT uprn::text id, ST_AsText(geom) geom FROM os.open_uprn_white_horse"""
+    val sql2 = """SELECT postcode id, ST_AsText(geom) geom FROM os.code_point_open_white_horse"""
 
     val uprn = db.getTable(sql1)
     val codepoint = db.getTable(sql2)
