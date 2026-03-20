@@ -5,14 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    #"apache-sedona[spark]==1.7.0",
-    #"pyspark==3.5.5",
-    #"setuptools>=75.0",
     "geopandas>=1.1.3",
     "ipykernel>=7.2.0",
     "psycopg2-binary>=2.9.11",
-    "pyarrow>=14.0,<15.0",
-    #"numpy>=1.26,<2.0",
+    "pyarrow",
     "numpy>=2",
     "ruff>=0.15.7",
     "scikit-learn>=1.8.0",
