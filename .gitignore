@@ -1,10 +1,10 @@
 #targets
-knn_scala/project/target/*
-knn_rust/target/*
-knn_scala/target/*
+scala/project/target/*
+rust/target/*
+scala/target/*
 kotlin/target/*
-knn_scala/project/*
-knn_kotlin/lib/*
+scala/project/*
+kotlin/lib/*
 
 #configs
 *.idea/*
@@ -20,4 +20,3 @@ knn_kotlin/lib/*
 
 #data
 data/raw/*
-

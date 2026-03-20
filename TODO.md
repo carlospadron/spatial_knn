@@ -1,4 +1,2 @@
-- run sklearn twice, just one value and just comparing distance
-- run sedona and kotlin in docker
 - add duckdb
 - add sedonadb
