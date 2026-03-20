@@ -3,11 +3,11 @@ import os
 import duckdb
 import pandas as pd
 
-user = os.getenv('DB_USER')
-password = os.getenv('DB_PASSWORD')
-host = os.getenv('DB_HOST', 'localhost')
-port = os.getenv('DB_PORT', '5432')
-database = os.getenv('DB_NAME', 'gis')
+user = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+host = os.getenv("DB_HOST", "localhost")
+port = os.getenv("DB_PORT", "5432")
+database = os.getenv("DB_NAME", "gis")
 
 con = duckdb.connect()
 con.execute("INSTALL spatial; LOAD spatial;")

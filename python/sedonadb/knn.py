@@ -6,21 +6,25 @@ import pandas as pd
 import sedonadb
 from sqlalchemy import create_engine
 
-user = os.getenv('DB_USER')
-password = os.getenv('DB_PASSWORD')
-host = os.getenv('DB_HOST', 'localhost')
-port = os.getenv('DB_PORT', '5432')
-database = os.getenv('DB_NAME', 'gis')
-engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{database}')
+user = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+host = os.getenv("DB_HOST", "localhost")
+port = os.getenv("DB_PORT", "5432")
+database = os.getenv("DB_NAME", "gis")
+engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
 
 sd = sedonadb.connect()
 
 # Load data outside the timed section (consistent with other scripts)
 uprn = gpd.read_postgis(
-    "SELECT uprn::text AS uprn, geom FROM os.open_uprn_white_horse", engine, geom_col='geom'
+    "SELECT uprn::text AS uprn, geom FROM os.open_uprn_white_horse",
+    engine,
+    geom_col="geom",
 )
 codepoint = gpd.read_postgis(
-    "SELECT postcode, geom FROM os.code_point_open_white_horse ORDER BY postcode", engine, geom_col='geom'
+    "SELECT postcode, geom FROM os.code_point_open_white_horse ORDER BY postcode",
+    engine,
+    geom_col="geom",
 )
 
 sd.create_data_frame(uprn).to_view("uprn")
@@ -46,5 +50,5 @@ knn = sd.sql("""
 
 t2 = pd.Timestamp.now()
 
-knn.to_csv(Path(__file__).parent / 'result.csv', index=False)
+knn.to_csv(Path(__file__).parent / "result.csv", index=False)
 print(t2 - t1)

@@ -7,13 +7,17 @@ from sedona.spark import *
 from pyspark.sql.functions import col, expr, concat_ws, collect_list
 
 config = (
-    SedonaContext
-    .builder()
+    SedonaContext.builder()
     .master("local[*]")
-    .config('spark.jars.packages',
-            'org.apache.sedona:sedona-spark-3.5_2.12:1.7.2,'
-            'org.datasyslab:geotools-wrapper:1.7.2-28.5')
-    .config('spark.jars.repositories', 'https://artifacts.unidata.ucar.edu/repository/unidata-all')
+    .config(
+        "spark.jars.packages",
+        "org.apache.sedona:sedona-spark-3.5_2.12:1.7.2,"
+        "org.datasyslab:geotools-wrapper:1.7.2-28.5",
+    )
+    .config(
+        "spark.jars.repositories",
+        "https://artifacts.unidata.ucar.edu/repository/unidata-all",
+    )
     .config("spark.executor.memory", "12g")
     .config("spark.driver.memory", "12g")
     .getOrCreate()
@@ -23,20 +27,26 @@ spark = SedonaContext.create(config)
 # %%
 # Read OS UPRN CSV
 uprn = spark.read.option("header", True).csv("data/raw/osopenuprn_202506.csv")
-uprn = uprn.withColumn("X_COORDINATE", col("X_COORDINATE").cast("double")) \
-           .withColumn("Y_COORDINATE", col("Y_COORDINATE").cast("double"))
+uprn = uprn.withColumn("X_COORDINATE", col("X_COORDINATE").cast("double")).withColumn(
+    "Y_COORDINATE", col("Y_COORDINATE").cast("double")
+)
 
 # %%
 # Read local authorities and codepoint from GeoPackage
-local_auth = spark.read.format("geopackage").option("tableName", "district_borough_unitary").load("data/raw/bdline_gb.gpkg")
-codepoint = spark.read.format("geopackage").option("tableName", "codepoint").load("data/raw/codepo_gb.gpkg")
+local_auth = (
+    spark.read.format("geopackage")
+    .option("tableName", "district_borough_unitary")
+    .load("data/raw/bdline_gb.gpkg")
+)
+codepoint = (
+    spark.read.format("geopackage")
+    .option("tableName", "codepoint")
+    .load("data/raw/codepo_gb.gpkg")
+)
 
 # %%
 # Create geometry for UPRN points
-uprn = uprn.withColumn(
-    "geom",
-    expr("ST_Point(X_COORDINATE, Y_COORDINATE)")
-)
+uprn = uprn.withColumn("geom", expr("ST_Point(X_COORDINATE, Y_COORDINATE)"))
 uprn = uprn.withColumn("geom", expr("ST_SetSRID(geom, 27700)"))
 
 # %%

@@ -4,12 +4,12 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import create_engine
 
-user = os.getenv('DB_USER')
-password = os.getenv('DB_PASSWORD')
-host = os.getenv('DB_HOST', 'localhost')
-port = os.getenv('DB_PORT', '5432')
-database = os.getenv('DB_NAME', 'gis')
-engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{database}')
+user = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+host = os.getenv("DB_HOST", "localhost")
+port = os.getenv("DB_PORT", "5432")
+database = os.getenv("DB_NAME", "gis")
+engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
 
 t1 = pd.Timestamp.now()
 
@@ -47,7 +47,9 @@ conn.close()
 
 t2 = pd.Timestamp.now()
 
-result = pd.read_sql("SELECT origin, destination, distance FROM os.knn_l ORDER BY origin", engine)
-result.to_csv(Path(__file__).parent / 'result.csv', index=False)
+result = pd.read_sql(
+    "SELECT origin, destination, distance FROM os.knn_l ORDER BY origin", engine
+)
+result.to_csv(Path(__file__).parent / "result.csv", index=False)
 
 print(t2 - t1)

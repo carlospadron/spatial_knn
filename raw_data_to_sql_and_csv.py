@@ -7,15 +7,15 @@ from sqlalchemy import create_engine
 import os
 
 # %%
-user=os.getenv('DB_USER')
-password=os.getenv('DB_PASSWORD')
-engine = create_engine(f'postgresql://{user}:{password}@localhost:5432/gis')
+user = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+engine = create_engine(f"postgresql://{user}:{password}@localhost:5432/gis")
 
 # %% [markdown]
 # # data
 
 # %%
-uprn = pd.read_csv('data/osopenuprn_202506.csv', nrows=1000)
+uprn = pd.read_csv("data/osopenuprn_202506.csv", nrows=1000)
 uprn.info()
 
 # %%
@@ -27,12 +27,14 @@ conn.commit()
 conn.close()
 
 # %%
-uprn.head(0).to_sql('os_open_uprn', 
-                con=engine, 
-                schema='os', 
-                if_exists='replace', 
-                method='multi', 
-                index=False)
+uprn.head(0).to_sql(
+    "os_open_uprn",
+    con=engine,
+    schema="os",
+    if_exists="replace",
+    method="multi",
+    index=False,
+)
 
 # %%
 cd = f"""
@@ -56,8 +58,8 @@ print(os.popen(cd).read())
 conn = engine.raw_connection()
 cursor = conn.cursor()
 
-#execute sql
-sql="""
+# execute sql
+sql = """
     ALTER TABLE os.os_open_uprn ADD COLUMN geom geometry('POINT', 27700);
     
     UPDATE os.os_open_uprn SET geom = ST_SetSRID(ST_Point("X_COORDINATE","Y_COORDINATE"), 27700);
@@ -109,9 +111,11 @@ conn.close()
 
 # %%
 sql = """SELECT *, ST_AsText(geom) wkt FROM os.code_point_open_white_horse;"""
-data = pd.read_sql(sql, engine).to_csv('data/code_point_open_white_horse.csv', index=False, header=False, sep='|')
+data = pd.read_sql(sql, engine).to_csv(
+    "data/code_point_open_white_horse.csv", index=False, header=False, sep="|"
+)
 
 sql = """SELECT *, ST_AsText(geom) wkt FROM os.open_uprn_white_horse;"""
-data = pd.read_sql(sql, engine).to_csv('data/open_uprn_white_horse.csv', index=False, header=False, sep='|')
-
-
+data = pd.read_sql(sql, engine).to_csv(
+    "data/open_uprn_white_horse.csv", index=False, header=False, sep="|"
+)

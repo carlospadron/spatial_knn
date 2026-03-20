@@ -38,7 +38,7 @@ All solutions can be run via `main.py`, which is a Jupyter-style notebook (using
 - **DuckDB** — data fits in memory, you want SQL semantics without a server, or you are already working with Parquet/ORC files.
 - **Scikit-Learn** — data fits in memory, points only. Could be faster than Shapely when finding only one neighbour per point, but cannot break ties by postcode (or any secondary sort key), so results may differ from the other implementations in those edge cases. It is not as flexible as the other python solutions so it might be used in particular cases.
 - **SQL (PostgreSQL + PostGIS)** — data does not fit in memory, or you need to join against other tables and write complex queries.
-- **C# (.NET / NetTopologySuite)** — already in the .NET ecosystem; API mirrors the JVM JTS library. Similar speed than the JVM solutions and easier to run as it requires less settings.
+- **C# (.NET / NetTopologySuite)** — already in the .NET ecosystem; API mirrors the JVM JTS library. Similar speed than the JVM solutions, easy to write and easier to run as it requires less settings.
 - **Scala / Kotlin (JVM)** — KNN is one part of a larger JVM application; slower than Go/Rust but with a larger library ecosystem.
 - **Go / Rust** — maximum single-machine speed; choose when the compiled language fits your stack. Rust edges out Go slightly. This require more coding knowledge.
 - **Apache Sedona / PySpark** — data is too large for a single machine and must be distributed across a cluster.
