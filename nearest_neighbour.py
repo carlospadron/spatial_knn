@@ -396,14 +396,9 @@ results = [
 # %%
 df = pd.DataFrame(results).sort_values('time').drop_duplicates().reset_index(drop=True)
 
-# Write styled HTML for notebook viewing
-styled = df.style.background_gradient(subset=['time'], cmap='RdYlGn_r')
-with open('results.html', 'w') as f:
-    f.write(styled.to_html())
-
 # Write markdown table into README.md between markers
 df_md = df.copy()
-df_md['time'] = df_md['time'].apply(lambda t: str(t).split('.')[-1] if t.total_seconds() < 60 else f"{t.total_seconds():.0f}s")
+df_md['time'] = df_md['time'].apply(lambda t: str(t) if t.total_seconds() < 60 else f"{t.total_seconds():.0f}s")
 md_table = df_md.to_markdown(index=False)
 readme = open('README.md').read()
 marker_start = '<!-- RESULTS_START -->'
@@ -415,9 +410,3 @@ if marker_start in readme:
 else:
     readme = readme.rstrip() + '\n\n' + new_section + '\n'
 open('README.md', 'w').write(readme)
-
-styled
-
-
-
-# %%
