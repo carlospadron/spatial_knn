@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: spatial_knn_postgres
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: gis
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  sedona:
+    build:
+      context: .
+      dockerfile: sedona.Dockerfile
+    container_name: spatial_knn_sedona
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    ports:
+      - "8888:8888"
+      - "4040:4040"   # Spark UI
+    volumes:
+      - .:/home/jovyan/work
+    working_dir: /home/jovyan/work
+
+  kotlin:
+    image: maven:3-eclipse-temurin-21
+    container_name: spatial_knn_kotlin
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - maven_cache:/root/.m2
+    working_dir: /workspace/kotlin
+
+  scala:
+    image: sbtscala/scala-sbt:eclipse-temurin-21.0.8_9_1.12.6_3.3.7
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - sbt_cache:/root/.cache
+    working_dir: /workspace/scala
+
+volumes:
+  postgres_data:
+  maven_cache:
+  sbt_cache:

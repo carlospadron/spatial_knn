@@ -1,0 +1,5 @@
+bin/
+obj/
+*.user
+csharp_all_vs_all.csv
+csharp_tree.csv

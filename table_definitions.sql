@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE SCHEMA IF NOT EXISTS os;
 DROP TABLE IF EXISTS os.open_uprn_white_horse;
 CREATE TABLE os.open_uprn_white_horse (
     uprn bigint PRIMARY KEY,
