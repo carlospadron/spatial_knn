@@ -4,15 +4,16 @@ import org.locationtech.jts.io.WKTReader
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.sql.{DriverManager, SQLException}
+import java.util.Locale
 import scala.collection.immutable.HashMap
-import scala.io.StdIn.readLine
 class DbManager(
                  user: String,
                  pass: String,
                  host: String,
+                 port: String,
                  db: String
                ) :
-  val connectionUrl = s"jdbc:postgresql://$host/$db?user=$user&password=$pass"
+  val connectionUrl = s"jdbc:postgresql://$host:$port/$db?user=$user&password=$pass"
 
   def getTable(sql: String) =
     val geom = scala.collection.mutable.HashMap.empty[String, Geometry]
@@ -65,33 +66,33 @@ def saveCsv(table: List[(String, String, Double)], name: String) =
   writer.newLine()
   table.foreach(
     x =>
-      writer.write(s"${x(0)}, \"${x(1)}\", ${x(2)}")
+      writer.write(s"${x(0)},\"${x(1)}\",${String.format(Locale.US, "%f", x(2))}")
       writer.newLine()
   )
   writer.flush()
 
 @main def main() =
-  println("db user")
-  val user = readLine()
-  println("bd password")
-  val pass = readLine()
+  val user   = Option(System.getenv("DB_USER")).getOrElse("postgres")
+  val pass   = Option(System.getenv("DB_PASSWORD")).getOrElse("")
+  val host   = Option(System.getenv("DB_HOST")).getOrElse("localhost")
+  val port   = Option(System.getenv("DB_PORT")).getOrElse("5432")
+  val dbName = Option(System.getenv("DB_NAME")).getOrElse("gis")
 
-  val db = DbManager(user, pass, "localhost", "gis")
-  val sql1 = """SELECT "UPRN" id, ST_AsText(geom) geom FROM os.open_uprn_white_horse"""
-  val sql2 = """SELECT "postcode" id, ST_AsText(geom) geom FROM os.code_point_open_white_horse"""
+  val db   = DbManager(user, pass, host, port, dbName)
+  val sql1 = """SELECT uprn::text id, ST_AsText(geom) geom FROM os.open_uprn_white_horse"""
+  val sql2 = """SELECT postcode id, ST_AsText(geom) geom FROM os.code_point_open_white_horse"""
 
-  val uprn = db.getTable(sql1)
+  val uprn      = db.getTable(sql1)
   val codepoint = db.getTable(sql2)
 
   val startTime = System.currentTimeMillis()
-  val out1 = nearestNeighbour(uprn, codepoint) //22sec
+  val out1 = nearestNeighbour(uprn, codepoint)
   val endTime = System.currentTimeMillis()
   saveCsv(out1, "scala_all_vs_all.csv")
+  println(s"all vs all: ${endTime - startTime}ms")
 
-  println(startTime - endTime)
   val startTime2 = System.currentTimeMillis()
-  val out2 = nearestNeighbour2(uprn, codepoint) //3.6sec
+  val out2 = nearestNeighbour2(uprn, codepoint)
   val endTime2 = System.currentTimeMillis()
   saveCsv(out2, "scala_tree.csv")
-
-  println(startTime2 - endTime2)
+  println(s"strtree: ${endTime2 - startTime2}ms")
