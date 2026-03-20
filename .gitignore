@@ -8,7 +8,7 @@ kotlin/lib/*
 
 #configs
 *.idea/*
-*.metals/*
+.metals/*
 
 #results
 *_tree.csv

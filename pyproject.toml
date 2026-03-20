@@ -13,4 +13,7 @@ dependencies = [
     "ruff>=0.15.7",
     "scikit-learn>=1.8.0",
     "sqlalchemy>=2.0.48",
+    "duckdb>=1.5.0",
+    "sedonadb>=0.3.0",
+    "geoarrow-pyarrow>=0.2.0",
 ]
