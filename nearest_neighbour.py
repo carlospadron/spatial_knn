@@ -5,7 +5,8 @@
 import os
 import subprocess
 import time
-
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 
 
@@ -410,3 +411,29 @@ if marker_start in readme:
 else:
     readme = readme.rstrip() + '\n\n' + new_section + '\n'
 open('README.md', 'w').write(readme)
+
+
+# %%
+# Create a horizontal bar plot of the results
+
+plot_df = df[df['test'] != 'BigQuery (Slot time consumed)'].copy()
+plot_df['seconds'] = plot_df['time'].dt.total_seconds()
+plot_df = plot_df.sort_values('seconds', ascending=True)
+
+fig, ax = plt.subplots(figsize=(10, 8))
+bars = ax.barh(plot_df['test'], plot_df['seconds'], color='steelblue')
+
+ax.set_xlabel('Time (seconds)')
+ax.set_title('KNN benchmark — time by method (lower is better)')
+ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{x:.0f}s'))
+
+for bar, val in zip(bars, plot_df['seconds']):
+    label = f'{val:.2f}s' if val < 1 else f'{val:.0f}s'
+    ax.text(bar.get_width() + max(plot_df['seconds']) * 0.01, bar.get_y() + bar.get_height() / 2,
+            label, va='center', fontsize=8)
+
+ax.set_xlim(0, plot_df['seconds'].max() * 1.15)
+plt.tight_layout()
+plt.savefig('results.png', dpi=150)
+plt.show()
+# %%
