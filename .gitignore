@@ -9,7 +9,7 @@ go/spatial_knn_go.exe
 #configs
 *.idea/*
 .metals/*
-
+.vscode/*
 #results
 *_tree.csv
 *_all_vs_all.csv
@@ -20,4 +20,5 @@ go/spatial_knn_go.exe
 
 #data
 data/raw/*
+
 
