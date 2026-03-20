@@ -27,6 +27,10 @@ A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based
      uv run --env-file .env raw_data_to_sql_and_csv.py
      ```
 
+## Running the benchmarks
+
+All solutions can be run via `main.py`, which is a Jupyter-style notebook (using `# %%` cell markers). Open it in VS Code and run cells individually, or execute it top to bottom to benchmark all implementations and generate the results chart.
+
 ## When to use what
 
 - **SedonaDB** — data fits in memory, you want SQL semantics with Sedona's spatial functions without a server; Very fast, simple to use.
@@ -74,3 +78,5 @@ A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based
 | Apache Sedona pure sql         | 158s                   |
 | BigQuery (Slot time consumed)  | 310s                   |
 <!-- RESULTS_END -->
+
+![Benchmark results](results.png)
