@@ -17,6 +17,15 @@ A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based
    ```bash
    docker compose up -d
    ```
+3. Load data into the database (**one-time setup** — data is stored in a named Docker volume and persists across restarts). Use whichever source you have available:
+   - **From ORC files** (preprocessed, faster):
+     ```bash
+     uv run --env-file .env load_orc_to_pg.py
+     ```
+   - **From raw CSV files**:
+     ```bash
+     uv run --env-file .env raw_data_to_sql_and_csv.py
+     ```
 
 ## When to use what
 - Geopandas: 

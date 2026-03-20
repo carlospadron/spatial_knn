@@ -13,5 +13,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  sedona:
+    image: apache/sedona:latest
+    container_name: spatial_knn_sedona
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    ports:
+      - "8888:8888"
+      - "4040:4040"   # Spark UI
+    volumes:
+      - .:/home/jovyan/work
+    working_dir: /home/jovyan/work
+
 volumes:
   postgres_data:
