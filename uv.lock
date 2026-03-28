@@ -91,9 +91,6 @@ wheels = [
 db = [
     { name = "sedonadb", extra = ["geopandas"] },
 ]
-spark = [
-    { name = "pyspark" },
-]
 
 [[package]]
 name = "appnope"
@@ -1177,15 +1174,6 @@ wheels = [
 ]
 
 [[package]]
-name = "py4j"
-version = "0.10.9.9"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/38/31/0b210511177070c8d5d3059556194352e5753602fa64b85b7ab81ec1a009/py4j-0.10.9.9.tar.gz", hash = "sha256:f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879", size = 761089, upload-time = "2025-01-15T03:53:18.624Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/db/ea0203e495be491c85af87b66e37acfd3bf756fd985f87e46fc5e3bf022c/py4j-0.10.9.9-py2.py3-none-any.whl", hash = "sha256:c7c26e4158defb37b0bb124933163641a2ff6e3a3913f7811b0ddbe07ed61533", size = 203008, upload-time = "2025-01-15T03:53:15.648Z" },
-]
-
-[[package]]
 name = "pyarrow"
 version = "23.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1353,15 +1341,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/56/413240dd5149dd3291eda55aa55a659da4431244a2fd1319d0ae89407cfb/pyproj-3.7.2-cp314-cp314t-win_amd64.whl", hash = "sha256:1914e29e27933ba6f9822663ee0600f169014a2859f851c054c88cf5ea8a333c", size = 6517676, upload-time = "2025-08-14T12:05:39.126Z" },
     { url = "https://files.pythonhosted.org/packages/15/73/a7141a1a0559bf1a7aa42a11c879ceb19f02f5c6c371c6d57fd86cefd4d1/pyproj-3.7.2-cp314-cp314t-win_arm64.whl", hash = "sha256:d9d25bae416a24397e0d85739f84d323b55f6511e45a522dd7d7eae70d10c7e4", size = 6391844, upload-time = "2025-08-14T12:05:40.745Z" },
 ]
-
-[[package]]
-name = "pyspark"
-version = "4.0.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "py4j" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/96/89/408b42c803db71f4a4d8a3f1ab0745a40dfe41aeacdfc453545665a171f4/pyspark-4.0.2.tar.gz", hash = "sha256:938b4a1883383374d331ebfcb5d92debfa1891cf3d7a6d730520a1a2d23f1a90", size = 434209940, upload-time = "2026-02-05T19:31:13.6Z" }
 
 [[package]]
 name = "python-dateutil"
@@ -1647,7 +1626,7 @@ name = "spatial-knn"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "apache-sedona", extra = ["db", "spark"] },
+    { name = "apache-sedona", extra = ["db"] },
     { name = "duckdb" },
     { name = "geoarrow-pyarrow" },
     { name = "geopandas" },
@@ -1657,7 +1636,6 @@ dependencies = [
     { name = "numpy" },
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
-    { name = "pyspark" },
     { name = "ruff" },
     { name = "scikit-learn" },
     { name = "sqlalchemy" },
@@ -1666,7 +1644,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apache-sedona", extras = ["spark", "db"], specifier = ">=1.8.1" },
+    { name = "apache-sedona", extras = ["db"], specifier = ">=1.8.1" },
     { name = "duckdb", specifier = ">=1.5.0" },
     { name = "geoarrow-pyarrow", specifier = ">=0.2.0" },
     { name = "geopandas", specifier = ">=1.1.3" },
@@ -1676,7 +1654,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=2" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "pyarrow" },
-    { name = "pyspark", specifier = ">=3.5.0" },
     { name = "ruff", specifier = ">=0.15.7" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "sqlalchemy", specifier = ">=2.0.48" },
