@@ -10,9 +10,12 @@ import matplotlib.ticker as ticker
 import pandas as pd
 
 
-def run_script(script_path):
+def run_script(script_path, extra_env=None):
+    env = {**os.environ}
+    if extra_env:
+        env.update(extra_env)
     result = subprocess.run(
-        ["uv", "run", "--env-file", ".env", script_path], capture_output=True, text=True
+        ["uv", "run", "--env-file", ".env", script_path], capture_output=True, text=True, env=env
     )
     if result.returncode != 0:
         print(f"FAILED\n{result.stderr}")
@@ -20,10 +23,14 @@ def run_script(script_path):
         print(f"Elapsed: {result.stdout.strip()}")
 
 
-def run_script_docker(script_path):
+def run_script_docker(script_path, extra_env=None):
     """Run a Python script inside the sedona Docker container (Spark + Sedona pre-installed)."""
+    env_args = []
+    if extra_env:
+        for k, v in extra_env.items():
+            env_args += ["-e", f"{k}={v}"]
     result = subprocess.run(
-        ["docker", "compose", "exec", "-T", "sedona", "python3", script_path],
+        ["docker", "compose", "exec", "-T"] + env_args + ["sedona", "python3", script_path],
         capture_output=True,
         text=True,
     )
@@ -165,209 +172,170 @@ def check(result_csv, ref):
     return mismatches
 
 
-# %% [markdown]
-# # SQL nearest neighbour (distinct)
+# Scenario definitions
+SCENARIOS = [
+    {
+        "name": "White Horse (small)",
+        "uprn_table": "os.open_uprn_white_horse",
+        "codepoint_table": "os.code_point_open_white_horse",
+        "result_suffix": "",
+        "plot_file": "results_white_horse.png",
+    },
+    {
+        "name": "Full GB (large)",
+        "uprn_table": "os.os_open_uprn",
+        "codepoint_table": "os.codepoint_polygons",
+        "result_suffix": "_full",
+        "plot_file": "results_full_gb.png",
+    },
+]
 
-# %% [markdown]
-# postgresql
+
+def run_scenario(scenario):
+    env = {
+        "UPRN_TABLE": scenario["uprn_table"],
+        "CODEPOINT_TABLE": scenario["codepoint_table"],
+    }
+    sfx = scenario["result_suffix"]
+    print(f"\n{'='*60}")
+    print(f"Running scenario: {scenario['name']}")
+    print(f"  UPRN table:      {scenario['uprn_table']}")
+    print(f"  Codepoint table: {scenario['codepoint_table']}")
+    print(f"{'='*60}\n")
+
+    # %% [markdown]
+    # # SQL nearest neighbour (distinct)
+
+    print("--- SQL distinct ---")
+    run_script("sql/sql_distinct/knn.py", extra_env=env)
+    reference = pd.read_csv("sql/sql_distinct/result.csv")
+
+    # %% [markdown]
+    # # SQL nearest neighbour (lateral)
+
+    print("--- SQL lateral ---")
+    run_script("sql/sql_lateral/knn.py", extra_env=env)
+    check("sql/sql_lateral/result.csv", reference)
+
+    # %% [markdown]
+    # # Geopandas sjoin_nearest
+
+    print("--- GeoPandas sjoin_nearest ---")
+    run_script("python/geopandas/knn.py", extra_env=env)
+    check("python/geopandas/result.csv", reference)
+
+    # %% [markdown]
+    # # python nearest neighbour - shapely (all vs all)
+
+    print("--- Shapely all vs all ---")
+    run_script("python/shapely_all_vs_all/knn.py", extra_env=env)
+    check("python/shapely_all_vs_all/result.csv", reference)
+
+    # %% [markdown]
+    # # python nearest neighbour - shapely (strtree)
+
+    print("--- Shapely strtree ---")
+    run_script("python/shapely_strtree/knn.py", extra_env=env)
+    check("python/shapely_strtree/result.csv", reference)
+
+    # %% [markdown]
+    # # Scikit-Learn
+
+    print("--- Scikit-Learn ---")
+    run_script("python/sklearn/knn.py", extra_env=env)
+    check("python/sklearn/result.csv", reference)
+
+    # %% [markdown]
+    # # Apache Sedona partial sql
+
+    print("--- Apache Sedona partial sql ---")
+    run_script_docker("python/sedona_partial/knn.py", extra_env=env)
+    check("python/sedona_partial/result.csv", reference)
+
+    # %% [markdown]
+    # # Apache Sedona pure sql
+
+    print("--- Apache Sedona pure sql ---")
+    run_script_docker("python/sedona_pure/knn.py", extra_env=env)
+    check("python/sedona_pure/result.csv", reference)
+
+    # %% [markdown]
+    # # Apache Sedona KNN operator
+
+    print("--- Apache Sedona st_knn ---")
+    run_script_docker("python/sedona_knn/knn.py", extra_env=env)
+    check("python/sedona_knn/result.csv", reference)
+
+    # %% [markdown]
+    # # Kotlin / Scala / Rust / C# / Go
+    # (compiled-language runners pick up UPRN_TABLE / CODEPOINT_TABLE via injected env)
+
+    print("--- Kotlin ---")
+    run_kotlin()
+    check("kotlin/kotlin_all_vs_all.csv", reference)
+    check("kotlin/kotlin_tree.csv", reference)
+
+    print("--- Scala ---")
+    run_scala()
+    check("scala/scala_all_vs_all.csv", reference)
+    check("scala/scala_tree.csv", reference)
+
+    print("--- Rust ---")
+    run_rust()
+    check("rust/rust_all_vs_all.csv", reference)
+    check("rust/rust_tree.csv", reference)
+
+    print("--- C# ---")
+    run_csharp()
+    check("csharp_all_vs_all.csv", reference)
+    check("csharp_tree.csv", reference)
+
+    print("--- Go ---")
+    run_go()
+    check("go/go_all_vs_all.csv", reference)
+    check("go/go_tree.csv", reference)
+
+    # %% [markdown]
+    # # DuckDB
+
+    print("--- DuckDB ---")
+    run_script("python/duckdb/knn.py", extra_env=env)
+    check("python/duckdb/result.csv", reference)
+
+    # %% [markdown]
+    # # SedonaDB
+
+    print("--- SedonaDB ---")
+    run_script("python/sedonadb/knn.py", extra_env=env)
+    check("python/sedonadb/result.csv", reference)
+
+    return reference
+
 
 # %%
-run_script("sql/sql_distinct/knn.py")
-reference = pd.read_csv("sql/sql_distinct/result.csv")
-reference
+# Run both scenarios
+scenario_references = {}
+for scenario in SCENARIOS:
+    ref = run_scenario(scenario)
+    scenario_references[scenario["name"]] = ref
+
+
 
 
 # %% [markdown]
-# # SQL nearest neighbour (lateral)
+# # Cloud service checks (use White Horse reference for validation)
 
 # %%
-run_script("sql/sql_lateral/knn.py")
-check("sql/sql_lateral/result.csv", reference)
+reference = scenario_references.get("White Horse (small)", pd.DataFrame())
 
-
-# %% [markdown]
-# # Geopandas sjoin_nearest
-
-# %%
-run_script("python/geopandas/knn.py")
-check("python/geopandas/result.csv", reference)
-
-
-# %% [markdown]
-# # python nearest neighbour - shapely (all vs all)
-
-# %%
-run_script("python/shapely_all_vs_all/knn.py")
-check("python/shapely_all_vs_all/result.csv", reference)
-
-
-# %% [markdown]
-# # python nearest neighbour - shapely (strtree)
-
-# %%
-run_script("python/shapely_strtree/knn.py")
-check("python/shapely_strtree/result.csv", reference)
-
-
-# %% [markdown]
-# # Scikit-Learn
-
-# %%
-run_script("python/sklearn/knn.py")
-check("python/sklearn/result.csv", reference)
-
-
-# %% [markdown]
-# # Apache Sedona
-
-# %% [markdown]
-# ## partial sql
-
-# %%
-run_script_docker("python/sedona_partial/knn.py")
-check("python/sedona_partial/result.csv", reference)
-
-
-# %% [markdown]
-# ## pure sql
-
-# %%
-run_script_docker("python/sedona_pure/knn.py")
-check("python/sedona_pure/result.csv", reference)
-
-
-# %% [markdown]
-# ## KNN operator
-
-# %%
-run_script_docker("python/sedona_knn/knn.py")
-check("python/sedona_knn/result.csv", reference)
-
-
-# %% [markdown]
-# # Kotlin all vs all
-
-# %%
-run_kotlin()
-check("kotlin/kotlin_all_vs_all.csv", reference)
-
-
-# %% [markdown]
-# # Kotlin strtree
-
-# %%
-check("kotlin/kotlin_tree.csv", reference)
-
-
-# %% [markdown]
-# # Scala all vs all
-
-# %%
-run_scala()
-check("scala/scala_all_vs_all.csv", reference)
-
-
-# %% [markdown]
-# # Scala strtree
-
-# %%
-check("scala/scala_tree.csv", reference)
-
-
-# %% [markdown]
-# # Rust all vs all
-
-# %%
-run_rust()
-check("rust/rust_all_vs_all.csv", reference)
-
-
-# %% [markdown]
-# # Rust tree
-
-# %%
-check("rust/rust_tree.csv", reference)
-
-
-# %% [markdown]
-# # C# all vs all
-
-# %%
-run_csharp()
-check("csharp_all_vs_all.csv", reference)
-
-
-# %% [markdown]
-# # C# tree
-
-# %%
-check("csharp_tree.csv", reference)
-
-
-# %% [markdown]
-# # Go all vs all
-
-# %%
-run_go()
-check("go/go_all_vs_all.csv", reference)
-
-
-# %% [markdown]
-# # Go tree
-
-# %%
-check("go/go_tree.csv", reference)
-
-
-# %% [markdown]
-# # DuckDB
-
-# %%
-run_script("python/duckdb/knn.py")
-check("python/duckdb/result.csv", reference)
-
-
-# %% [markdown]
-# # SedonaDB
-
-# %%
-run_script("python/sedonadb/knn.py")
-check("python/sedonadb/result.csv", reference)
-
-# %% [markdown]
-# # BigQuery
-
-# %%
 check("big_query_result.csv", reference)
-
-
-# %% [markdown]
-# # Redshift
-
-# %%
 check("redshift_result.csv", reference)
-
-
-# %% [markdown]
-# # Athena
-
-# %%
 check("athena_results.csv", reference)
 
-
-# %% [markdown]
-# # Snowflake (x-small)
-
-# %%
 knn = pd.read_csv("snowflake_result.csv").rename(columns=lambda x: x.lower())
 merged = pd.merge(reference, knn, how="outer", on="origin")
 merged[merged["destination_x"] != merged["destination_y"]]
 
-
-# %% [markdown]
-# # Databricks (Standard_DS3_v2)
-
-# %%
 # update filename to match the actual Databricks output CSV
 knn = pd.read_csv(
     "part-00000-tid-83222403381116274-4d1c858d-cce3-41a1-a392-7cb7afb59909-633-1-c000.csv"
@@ -377,63 +345,131 @@ merged[merged["destination_x"] != merged["destination_y"]]
 
 
 # %% [markdown]
-# # Results
+# # Results — per-scenario benchmark tables and plots
 
 # %%
-results = [
-    {"test": "SQL distinct", "time": pd.Timedelta("0 days 00:02:10.043192")},
-    {"test": "SQL lateral", "time": pd.Timedelta("0 days 00:01:02.638035")},
-    {"test": "Geopandas sjoin_nearest", "time": pd.Timedelta("0 days 00:00:01.791905")},
-    {"test": "Shapely all vs all", "time": pd.Timedelta("0 days 00:02:06.666341")},
-    {"test": "Shapely strtree", "time": pd.Timedelta("0 days 00:00:01.319851")},
-    {
-        "test": "Scikit-Learn nearest neighbour",
-        "time": pd.Timedelta("0 days 00:00:25.355890"),
-    },
-    {
-        "test": "Apache Sedona partial sql",
-        "time": pd.Timedelta("0 days 00:02:32.106516"),
-    },
-    {"test": "Apache Sedona pure sql", "time": pd.Timedelta("0 days 00:02:37.501045")},
-    {"test": "Apache Sedona st_knn", "time": pd.Timedelta("0 days 00:00:09.269729")},
-    {"test": "kotlin all vs all", "time": pd.Timedelta("0 days 00:00:32.706000")},
-    {"test": "kotlin strtree", "time": pd.Timedelta("0 days 00:00:03.627000")},
-    {"test": "scala all vs all", "time": pd.Timedelta("0 days 00:00:27.585000")},
-    {"test": "scala strtree", "time": pd.Timedelta("0 days 00:00:04.142000")},
-    {"test": "rust all vs all", "time": pd.Timedelta("0 days 00:00:04.044441")},
-    {"test": "rust strtree", "time": pd.Timedelta("0 days 00:00:00.346612")},
-    {"test": "C# all vs all", "time": pd.Timedelta("0 days 00:00:22.904955")},
-    {"test": "C# strtree", "time": pd.Timedelta("0 days 00:00:05.894800")},
-    {"test": "Go all vs all", "time": pd.Timedelta("0 days 00:00:00.916740")},
-    {"test": "Go strtree", "time": pd.Timedelta("0 days 00:00:00.321024")},
-    {"test": "DuckDB", "time": pd.Timedelta("0 days 00:00:17.465032")},
-    {"test": "SedonaDB", "time": pd.Timedelta("0 days 00:00:00.750684")},
-    {"test": "BigQuery", "time": pd.Timedelta("0 days 00:00:03")},
-    {"test": "BigQuery (Slot time consumed)", "time": pd.Timedelta("0 days 00:05:10")},
-    {"test": "RedShift", "time": pd.Timedelta("0 days 00:00:26")},
-    {"test": "Athena", "time": pd.Timedelta("0 days 00:01:50")},
-    {"test": "Snowflake cartesian", "time": pd.Timedelta("0 days 00:01:15")},
-    {"test": "Snowflake h3", "time": pd.Timedelta("0 days 00:00:45")},
-    {"test": "Databricks pure sql", "time": pd.Timedelta("0 days 00:01:00")},
-]
+# Hardcoded baseline timings per scenario (update with measured values)
+RESULTS_BY_SCENARIO = {
+    "White Horse (small)": [
+        {"test": "SQL distinct", "time": pd.Timedelta("0 days 00:02:10.043192")},
+        {"test": "SQL lateral", "time": pd.Timedelta("0 days 00:01:02.638035")},
+        {"test": "Geopandas sjoin_nearest", "time": pd.Timedelta("0 days 00:00:01.791905")},
+        {"test": "Shapely all vs all", "time": pd.Timedelta("0 days 00:02:06.666341")},
+        {"test": "Shapely strtree", "time": pd.Timedelta("0 days 00:00:01.319851")},
+        {"test": "Scikit-Learn nearest neighbour", "time": pd.Timedelta("0 days 00:00:25.355890")},
+        {"test": "Apache Sedona partial sql", "time": pd.Timedelta("0 days 00:02:32.106516")},
+        {"test": "Apache Sedona pure sql", "time": pd.Timedelta("0 days 00:02:37.501045")},
+        {"test": "Apache Sedona st_knn", "time": pd.Timedelta("0 days 00:00:09.269729")},
+        {"test": "kotlin all vs all", "time": pd.Timedelta("0 days 00:00:32.706000")},
+        {"test": "kotlin strtree", "time": pd.Timedelta("0 days 00:00:03.627000")},
+        {"test": "scala all vs all", "time": pd.Timedelta("0 days 00:00:27.585000")},
+        {"test": "scala strtree", "time": pd.Timedelta("0 days 00:00:04.142000")},
+        {"test": "rust all vs all", "time": pd.Timedelta("0 days 00:00:04.044441")},
+        {"test": "rust strtree", "time": pd.Timedelta("0 days 00:00:00.346612")},
+        {"test": "C# all vs all", "time": pd.Timedelta("0 days 00:00:22.904955")},
+        {"test": "C# strtree", "time": pd.Timedelta("0 days 00:00:05.894800")},
+        {"test": "Go all vs all", "time": pd.Timedelta("0 days 00:00:00.916740")},
+        {"test": "Go strtree", "time": pd.Timedelta("0 days 00:00:00.321024")},
+        {"test": "DuckDB", "time": pd.Timedelta("0 days 00:00:17.465032")},
+        {"test": "SedonaDB", "time": pd.Timedelta("0 days 00:00:00.750684")},
+        {"test": "BigQuery", "time": pd.Timedelta("0 days 00:00:03")},
+        {"test": "BigQuery (Slot time consumed)", "time": pd.Timedelta("0 days 00:05:10")},
+        {"test": "RedShift", "time": pd.Timedelta("0 days 00:00:26")},
+        {"test": "Athena", "time": pd.Timedelta("0 days 00:01:50")},
+        {"test": "Snowflake cartesian", "time": pd.Timedelta("0 days 00:01:15")},
+        {"test": "Snowflake h3", "time": pd.Timedelta("0 days 00:00:45")},
+        {"test": "Databricks pure sql", "time": pd.Timedelta("0 days 00:01:00")},
+    ],
+    "Full GB (large)": [
+        # Update these timings after running the full-GB benchmarks
+        {"test": "SQL distinct", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "SQL lateral", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Geopandas sjoin_nearest", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Shapely all vs all", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Shapely strtree", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Scikit-Learn nearest neighbour", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Apache Sedona partial sql", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Apache Sedona pure sql", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Apache Sedona st_knn", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "kotlin all vs all", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "kotlin strtree", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "scala all vs all", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "scala strtree", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "rust all vs all", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "rust strtree", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "C# all vs all", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "C# strtree", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Go all vs all", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "Go strtree", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "DuckDB", "time": pd.Timedelta("0 days 00:00:00")},
+        {"test": "SedonaDB", "time": pd.Timedelta("0 days 00:00:00")},
+    ],
+}
+
+
+def make_plot(results, title, filename):
+    df = pd.DataFrame(results).sort_values("time").drop_duplicates().reset_index(drop=True)
+    plot_df = df[df["test"] != "BigQuery (Slot time consumed)"].copy()
+    plot_df["seconds"] = plot_df["time"].dt.total_seconds()
+    # Skip tests with no timing data
+    plot_df = plot_df[plot_df["seconds"] > 0].sort_values("seconds", ascending=True)
+    if plot_df.empty:
+        print(f"No timing data for plot: {title}")
+        return df
+
+    fig, ax = plt.subplots(figsize=(10, max(6, len(plot_df) * 0.4)))
+    bars = ax.barh(plot_df["test"], plot_df["seconds"], color="steelblue")
+    ax.set_xlabel("Time (seconds)")
+    ax.set_title(title)
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.0f}s"))
+    for bar, val in zip(bars, plot_df["seconds"]):
+        label = f"{val:.2f}s" if val < 1 else f"{val:.0f}s"
+        ax.text(
+            bar.get_width() + max(plot_df["seconds"]) * 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            label,
+            va="center",
+            fontsize=8,
+        )
+    ax.set_xlim(0, plot_df["seconds"].max() * 1.15)
+    plt.tight_layout()
+    plt.savefig(filename, dpi=150)
+    plt.show()
+    print(f"Saved plot: {filename}")
+    return df
 
 
 # %%
-df = pd.DataFrame(results).sort_values("time").drop_duplicates().reset_index(drop=True)
+# Generate plot + markdown table for each scenario
+all_dfs = {}
+for scenario in SCENARIOS:
+    sname = scenario["name"]
+    results = RESULTS_BY_SCENARIO.get(sname, [])
+    df = make_plot(
+        results,
+        f"KNN benchmark — {sname} — time by method (lower is better)",
+        scenario["plot_file"],
+    )
+    all_dfs[sname] = df
 
-# Write markdown table into README.md between markers
-df_md = df.copy()
-df_md["time"] = df_md["time"].apply(
-    lambda t: str(t) if t.total_seconds() < 60 else f"{t.total_seconds():.0f}s"
-)
-md_table = df_md.to_markdown(index=False)
-readme = open("README.md").read()
+
+# %%
+# Write combined markdown table into README.md between markers
+import re
+
 marker_start = "<!-- RESULTS_START -->"
 marker_end = "<!-- RESULTS_END -->"
-new_section = f"{marker_start}\n## Results\n\n{md_table}\n{marker_end}"
-if marker_start in readme:
-    import re
+sections = []
+for sname, df in all_dfs.items():
+    df_md = df.copy()
+    df_md["time"] = df_md["time"].apply(
+        lambda t: str(t) if t.total_seconds() < 60 else f"{t.total_seconds():.0f}s"
+    )
+    sections.append(f"## Results — {sname}\n\n{df_md.to_markdown(index=False)}")
 
+new_section = f"{marker_start}\n" + "\n\n".join(sections) + f"\n{marker_end}"
+readme = open("README.md").read()
+if marker_start in readme:
     readme = re.sub(
         f"{marker_start}.*?{marker_end}", new_section, readme, flags=re.DOTALL
     )
@@ -441,33 +477,5 @@ else:
     readme = readme.rstrip() + "\n\n" + new_section + "\n"
 open("README.md", "w").write(readme)
 
-
 # %%
-# Create a horizontal bar plot of the results
 
-plot_df = df[df["test"] != "BigQuery (Slot time consumed)"].copy()
-plot_df["seconds"] = plot_df["time"].dt.total_seconds()
-plot_df = plot_df.sort_values("seconds", ascending=True)
-
-fig, ax = plt.subplots(figsize=(10, 8))
-bars = ax.barh(plot_df["test"], plot_df["seconds"], color="steelblue")
-
-ax.set_xlabel("Time (seconds)")
-ax.set_title("KNN benchmark — time by method (lower is better)")
-ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.0f}s"))
-
-for bar, val in zip(bars, plot_df["seconds"]):
-    label = f"{val:.2f}s" if val < 1 else f"{val:.0f}s"
-    ax.text(
-        bar.get_width() + max(plot_df["seconds"]) * 0.01,
-        bar.get_y() + bar.get_height() / 2,
-        label,
-        va="center",
-        fontsize=8,
-    )
-
-ax.set_xlim(0, plot_df["seconds"].max() * 1.15)
-plt.tight_layout()
-plt.savefig("results.png", dpi=150)
-plt.show()
-# %%

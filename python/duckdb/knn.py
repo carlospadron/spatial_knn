@@ -8,6 +8,8 @@ password = os.getenv("DB_PASSWORD")
 host = os.getenv("DB_HOST", "localhost")
 port = os.getenv("DB_PORT", "5432")
 database = os.getenv("DB_NAME", "gis")
+uprn_table = os.getenv("UPRN_TABLE", "os.open_uprn_white_horse")
+codepoint_table = os.getenv("CODEPOINT_TABLE", "os.code_point_open_white_horse")
 
 con = duckdb.connect()
 con.execute("INSTALL spatial; LOAD spatial;")
@@ -18,13 +20,13 @@ con.execute(
 )
 
 # Load into local DuckDB tables (outside timing, consistent with other scripts)
-con.execute("""
+con.execute(f"""
     CREATE TABLE uprn AS
-    SELECT uprn::text AS uprn, geom FROM pg.os.open_uprn_white_horse
+    SELECT uprn::text AS uprn, geom FROM pg.{uprn_table}
 """)
-con.execute("""
+con.execute(f"""
     CREATE TABLE codepoint AS
-    SELECT postcode, geom FROM pg.os.code_point_open_white_horse
+    SELECT postcode, geom FROM pg.{codepoint_table}
 """)
 
 # R-tree index accelerates bounding-box joins (&&); DuckDB does NOT use it for

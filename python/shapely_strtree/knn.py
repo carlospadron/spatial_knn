@@ -11,13 +11,15 @@ password = os.getenv("DB_PASSWORD")
 host = os.getenv("DB_HOST", "localhost")
 port = os.getenv("DB_PORT", "5432")
 database = os.getenv("DB_NAME", "gis")
+uprn_table = os.getenv("UPRN_TABLE", "os.open_uprn_white_horse")
+codepoint_table = os.getenv("CODEPOINT_TABLE", "os.code_point_open_white_horse")
 engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
 
 uprn = gpd.read_postgis(
-    "SELECT uprn, geom FROM os.open_uprn_white_horse", engine, geom_col="geom"
+    f"SELECT uprn, geom FROM {uprn_table}", engine, geom_col="geom"
 )
 codepoint = gpd.read_postgis(
-    "SELECT postcode, geom FROM os.code_point_open_white_horse", engine, geom_col="geom"
+    f"SELECT postcode, geom FROM {codepoint_table}", engine, geom_col="geom"
 )
 
 

@@ -17,3 +17,22 @@ CREATE TABLE os.code_point_open_white_horse (
     geom geometry(Point, 27700),
     wkt text
 );
+
+-- Full Great Britain dataset tables
+DROP TABLE IF EXISTS os.os_open_uprn;
+CREATE TABLE os.os_open_uprn (
+    uprn bigint PRIMARY KEY,
+    easting double precision,
+    northing double precision,
+    lat double precision,
+    lon double precision,
+    geom geometry(Point, 27700),
+    wkt text
+);
+
+DROP TABLE IF EXISTS os.codepoint_polygons;
+CREATE TABLE os.codepoint_polygons (
+    postcode text PRIMARY KEY,
+    geom geometry(Point, 27700),
+    wkt text
+);

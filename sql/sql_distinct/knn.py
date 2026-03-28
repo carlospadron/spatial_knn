@@ -9,13 +9,15 @@ password = os.getenv("DB_PASSWORD")
 host = os.getenv("DB_HOST", "localhost")
 port = os.getenv("DB_PORT", "5432")
 database = os.getenv("DB_NAME", "gis")
+uprn_table = os.getenv("UPRN_TABLE", "os.open_uprn_white_horse")
+codepoint_table = os.getenv("CODEPOINT_TABLE", "os.code_point_open_white_horse")
 engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
 
 t1 = pd.Timestamp.now()
 
 conn = engine.raw_connection()
 cursor = conn.cursor()
-cursor.execute("""
+cursor.execute(f"""
     DROP TABLE IF EXISTS os.knn;
     WITH knn AS (
         SELECT DISTINCT ON (A.uprn)
@@ -23,8 +25,8 @@ cursor.execute("""
             B.postcode as destination,
             round(ST_Distance(A.geom, B.geom)::numeric, 2) as distance
         FROM
-            os.open_uprn_white_horse as A,
-            os.code_point_open_white_horse as B
+            {uprn_table} as A,
+            {codepoint_table} as B
         WHERE
             ST_DWithin(A.geom, B.geom, 5000)
         ORDER BY
