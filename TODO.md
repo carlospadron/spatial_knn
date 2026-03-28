@@ -1,0 +1,3 @@
+- output results to a csv
+- plot from csv
+- package into docker images to also test memory

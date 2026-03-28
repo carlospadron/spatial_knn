@@ -10,6 +10,7 @@ go/spatial_knn_go.exe
 *.idea/*
 .metals/*
 .vscode/*
+scala/.bsp/sbt.json
 #results
 *_tree.csv
 *_all_vs_all.csv
@@ -20,5 +21,6 @@ go/spatial_knn_go.exe
 
 #data
 data/raw/*
+
 
 
