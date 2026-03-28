@@ -50,7 +50,7 @@ def _write_orc(df, path):
     if os.path.isdir(path):
         shutil.rmtree(path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    pa_orc.write_table(pa.Table.from_pandas(df, preserve_index=False), path)
+    pa_orc.write_table(pa.Table.from_pandas(df, preserve_index=False), path, compression="snappy")
 
 
 def _aggregate_codepoint(gdf):
