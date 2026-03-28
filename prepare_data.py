@@ -2,7 +2,7 @@
 # # Prepare spatial data — single entry point
 #
 # Two modes:
-#   --from-raw   (default) Read raw CSV/GPKG → Spark/Sedona spatial join →
+#   --from-raw   (default) Read raw CSV/GPKG → SedonaDB spatial join →
 #                write ORC + CSV → load all 4 tables into PostGIS
 #   --from-orc   Read existing ORC files → load all 4 tables into PostGIS
 #                (no Spark required)
@@ -13,11 +13,16 @@
 
 # %%
 import argparse
+import glob
 import io
 import os
+import shutil
 
+import geopandas as gpd
 import pandas as pd
+import pyarrow as pa
 import pyarrow.dataset as pds
+import pyarrow.orc as pa_orc
 from sqlalchemy import create_engine, text
 
 # %%
@@ -36,18 +41,50 @@ ORC_PATHS = {
 }
 
 
+def _log(msg):
+    print(f"[{pd.Timestamp.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def _write_orc(df, path):
+    """Write a pandas DataFrame as a single ORC file, replacing any existing file or directory."""
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    pa_orc.write_table(pa.Table.from_pandas(df, preserve_index=False), path)
+
+
+def _aggregate_codepoint(gdf):
+    """Group a codepoint GeoDataFrame by geometry, merging postcodes at the same centroid."""
+    gdf = gdf.copy()
+    gdf["_wkt"] = gdf.geometry.to_wkt()
+    agg = gdf.groupby("_wkt", sort=False)["postcode"].agg(",".join).reset_index()
+    agg["geom_wkb"] = gpd.GeoSeries.from_wkt(agg["_wkt"]).apply(lambda g: g.wkb)
+    return agg[["postcode", "geom_wkb"]]
+
+
+def _geom_to_wkb(value):
+    """Normalise a geometry value (shapely, bytes, or bytearray) to raw WKB bytes."""
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value)
+    if hasattr(value, "wkb"):
+        return value.wkb
+    return None
+
+
 # ---------------------------------------------------------------------------
 # PostGIS helpers
 # ---------------------------------------------------------------------------
 def create_tables():
+    _log("Creating schema and tables from table_definitions.sql…")
     with open("table_definitions.sql") as f:
         ddl = f.read()
     with engine.begin() as conn:
         conn.execute(text(ddl))
-    print("Created schema and tables.")
+    _log("  Done.")
 
 
 def load_uprn_orc(orc_path, target_table, index_name):
+    _log(f"Loading {orc_path} → {target_table}…")
     df = pds.dataset(orc_path, format="orc").to_table().to_pandas()
     df = df.rename(
         columns={
@@ -62,6 +99,7 @@ def load_uprn_orc(orc_path, target_table, index_name):
         lambda b: b.hex() if b is not None else None
     )
     stage = df[["uprn", "easting", "northing", "lat", "lon", "geom_hex"]].copy()
+    _log(f"  {len(stage):,} rows read — copying to staging table…")
 
     raw = engine.raw_connection()
     try:
@@ -75,6 +113,7 @@ def load_uprn_orc(orc_path, target_table, index_name):
         stage.to_csv(buf, index=False, header=False, sep="\t", na_rep="\\N")
         buf.seek(0)
         cur.copy_expert("COPY _uprn_stage FROM STDIN WITH (FORMAT text)", buf)
+        _log("  COPY done — inserting into target table…")
         cur.execute(f"""
             INSERT INTO {target_table} (uprn, easting, northing, lat, lon, geom, wkt)
             SELECT uprn, easting, northing, lat, lon,
@@ -83,20 +122,23 @@ def load_uprn_orc(orc_path, target_table, index_name):
             FROM _uprn_stage
             ON CONFLICT (uprn) DO NOTHING;
         """)
+        _log(f"  Building spatial index {index_name}…")
         cur.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom);")
         cur.execute("DROP TABLE _uprn_stage;")
         raw.commit()
     finally:
         raw.close()
-    print(f"Loaded {target_table}: {len(stage)} rows")
+    _log(f"  {target_table} loaded ({len(stage):,} rows).")
 
 
 def load_codepoint_orc(orc_path, target_table, index_name):
+    _log(f"Loading {orc_path} → {target_table}…")
     df = pds.dataset(orc_path, format="orc").to_table().to_pandas()
     df["geom_hex"] = df["geom_wkb"].apply(
         lambda b: b.hex() if b is not None else None
     )
     stage = df[["postcode", "geom_hex"]].copy()
+    _log(f"  {len(stage):,} rows read — copying to staging table…")
 
     raw = engine.raw_connection()
     try:
@@ -106,6 +148,7 @@ def load_codepoint_orc(orc_path, target_table, index_name):
         stage.to_csv(buf, index=False, header=False, sep="\t", na_rep="\\N")
         buf.seek(0)
         cur.copy_expert("COPY _cp_stage FROM STDIN WITH (FORMAT text)", buf)
+        _log("  COPY done — inserting into target table…")
         cur.execute(f"""
             INSERT INTO {target_table} (postcode, geom, wkt)
             SELECT postcode,
@@ -114,12 +157,13 @@ def load_codepoint_orc(orc_path, target_table, index_name):
             FROM _cp_stage
             ON CONFLICT (postcode) DO NOTHING;
         """)
+        _log(f"  Building spatial index {index_name}…")
         cur.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom);")
         cur.execute("DROP TABLE _cp_stage;")
         raw.commit()
     finally:
         raw.close()
-    print(f"Loaded {target_table}: {len(stage)} rows")
+    _log(f"  {target_table} loaded ({len(stage):,} rows).")
 
 
 def load_all_orc():
@@ -128,118 +172,113 @@ def load_all_orc():
     load_codepoint_orc(ORC_PATHS["cp_full"], "os.codepoint_polygons", "cp_full_gis")
     load_uprn_orc(ORC_PATHS["uprn_wh"], "os.open_uprn_white_horse", "uprn_wh_gis")
     load_codepoint_orc(ORC_PATHS["cp_wh"], "os.code_point_open_white_horse", "cp_wh_gis")
-    print("Done — all tables loaded from ORC.")
+    _log("All tables loaded from ORC.")
 
 
 # ---------------------------------------------------------------------------
-# From raw: Spark/Sedona transform → ORC + CSV → PostGIS
+# From raw: SedonaDB spatial join → ORC + CSV → PostGIS
 # ---------------------------------------------------------------------------
 def from_raw():
-    from sedona.spark import SedonaContext
-    from pyspark.sql.functions import col, expr, concat_ws, collect_list
+    from sedona.db import connect
 
-    config = (
-        SedonaContext.builder()
-        .master("local[*]")
-        .config(
-            "spark.jars.packages",
-            "org.apache.sedona:sedona-spark-3.5_2.12:1.7.2,"
-            "org.datasyslab:geotools-wrapper:1.7.2-28.5",
-        )
-        .config(
-            "spark.jars.repositories",
-            "https://artifacts.unidata.ucar.edu/repository/unidata-all",
-        )
-        .config("spark.executor.memory", "12g")
-        .config("spark.driver.memory", "12g")
-        .getOrCreate()
-    )
-    spark = SedonaContext.create(config)
+    _log("Initialising SedonaDB (single-node)…")
+    sd = connect()
 
     # ---- Read raw sources ----
-    # Glob picks up any release date variant, e.g. osopenuprn_202506.csv
-    uprn = spark.read.option("header", True).csv("data/raw/osopenuprn_*.csv")
-    uprn = uprn.withColumn("X_COORDINATE", col("X_COORDINATE").cast("double")).withColumn(
-        "Y_COORDINATE", col("Y_COORDINATE").cast("double")
+    csv_files = sorted(glob.glob("data/raw/osopenuprn_*.csv"))
+    if not csv_files:
+        raise FileNotFoundError("No osopenuprn_*.csv found under data/raw/")
+    _log(f"Reading UPRN CSV: {csv_files[-1]}")
+    uprn_pd = pd.read_csv(csv_files[-1], dtype={"UPRN": "int64"})
+    _log(f"  {len(uprn_pd):,} UPRN records")
+
+    _log("Reading CodePoint GeoPackage…")
+    codepoint_gdf = gpd.read_file("data/raw/codepo_gb.gpkg", layer="codepoint")
+    codepoint_gdf = codepoint_gdf.set_crs("EPSG:27700", allow_override=True)
+    _log(f"  {len(codepoint_gdf):,} codepoint records")
+
+    _log("Reading district boundaries GeoPackage…")
+    local_auth = gpd.read_file("data/raw/bdline_gb.gpkg", layer="district_borough_unitary")
+    white_horse = (
+        local_auth[local_auth["Name"] == "Vale of White Horse District"]
+        .to_crs("EPSG:27700")
+    )
+    _log("  White Horse boundary ready")
+
+    # ---- Build UPRN GeoDataFrame ----
+    _log("Building UPRN GeoDataFrame…")
+    uprn_gdf = gpd.GeoDataFrame(
+        uprn_pd,
+        geometry=gpd.points_from_xy(uprn_pd["X_COORDINATE"], uprn_pd["Y_COORDINATE"]),
+        crs="EPSG:27700",
     )
 
-    local_auth = (
-        spark.read.format("geopackage")
-        .option("tableName", "district_borough_unitary")
-        .load("data/raw/bdline_gb.gpkg")
-    )
-    codepoint = (
-        spark.read.format("geopackage")
-        .option("tableName", "codepoint")
-        .load("data/raw/codepo_gb.gpkg")
-    )
+    # ---- Write full GB ORC files (no spatial filter needed) ----
+    _log("Writing full GB UPRN ORC…")
+    uprn_full = uprn_pd.copy()
+    uprn_full["geom_wkb"] = uprn_gdf.geometry.apply(lambda g: g.wkb)
+    _write_orc(uprn_full, ORC_PATHS["uprn_full"])
+    _log(f"  Wrote {ORC_PATHS['uprn_full']} ({len(uprn_full):,} rows)")
 
-    # ---- Geometry columns ----
-    uprn = uprn.withColumn("geom", expr("ST_SetSRID(ST_Point(X_COORDINATE, Y_COORDINATE), 27700)"))
+    _log("Writing full GB CodePoint ORC…")
+    cp_full = _aggregate_codepoint(codepoint_gdf)
+    _write_orc(cp_full, ORC_PATHS["cp_full"])
+    _log(f"  Wrote {ORC_PATHS['cp_full']} ({len(cp_full):,} rows)")
 
-    # ---- Full GB datasets ----
-    uprn_full = uprn.withColumn("geom_wkb", expr("ST_AsBinary(geom)"))
-    uprn_full.write.mode("overwrite").orc(ORC_PATHS["uprn_full"])
-    print(f"Wrote {ORC_PATHS['uprn_full']}")
+    # ---- Register views in SedonaDB for spatial filtering ----
+    _log("Registering SedonaDB views…")
+    sd.create_data_frame(uprn_gdf).to_view("uprn")
+    sd.create_data_frame(white_horse).to_view("white_horse")
+    sd.create_data_frame(codepoint_gdf).to_view("codepoint")
 
-    codepoint_with_geom = codepoint.withColumn("geom", expr("ST_SetSRID(geometry, 27700)"))
-    cp_full = (
-        codepoint_with_geom.groupBy("geometry")
-        .agg(concat_ws(",", collect_list(col("postcode").cast("string"))).alias("postcode"))
-        .withColumnRenamed("geometry", "geom")
-        .withColumn("geom_wkb", expr("ST_AsBinary(geom)"))
-    )
-    cp_full.write.mode("overwrite").orc(ORC_PATHS["cp_full"])
-    print(f"Wrote {ORC_PATHS['cp_full']}")
+    # ---- Spatial filter to White Horse ----
+    _log("Filtering UPRN to White Horse via ST_Intersects…")
+    uprn_wh_pd = sd.sql("""
+        SELECT u.UPRN, u.X_COORDINATE, u.Y_COORDINATE, u.LATITUDE, u.LONGITUDE, u.geometry
+        FROM uprn u, white_horse w
+        WHERE ST_Intersects(u.geometry, w.geometry)
+    """).to_pandas()
+    _log(f"  {len(uprn_wh_pd):,} UPRN within White Horse")
 
-    # ---- White Horse filtered datasets ----
-    white_horse = local_auth.filter(col("name") == "Vale of White Horse District")
-    uprn.createOrReplaceTempView("uprn")
-    white_horse.createOrReplaceTempView("white_horse")
-    codepoint.createOrReplaceTempView("codepoint")
-
-    uprn_wh = spark.sql("""
-        SELECT u.* FROM uprn u, white_horse w
-        WHERE ST_Intersects(u.geom, w.geometry)
-    """)
-    uprn_wh = uprn_wh.withColumn("geom_wkb", expr("ST_AsBinary(geom)"))
-    uprn_wh.write.mode("overwrite").orc(ORC_PATHS["uprn_wh"])
-    print(f"Wrote {ORC_PATHS['uprn_wh']}")
-
-    cp_wh = spark.sql("""
-        SELECT c.* FROM codepoint c, white_horse w
+    _log("Filtering CodePoint to White Horse via ST_Intersects…")
+    cp_wh_raw = sd.sql("""
+        SELECT c.postcode, c.geometry
+        FROM codepoint c, white_horse w
         WHERE ST_Intersects(c.geometry, w.geometry)
-    """)
-    cp_wh = (
-        cp_wh.groupBy("geometry")
-        .agg(concat_ws(",", collect_list(col("postcode").cast("string"))).alias("postcode"))
-        .withColumnRenamed("geometry", "geom")
-        .withColumn("geom_wkb", expr("ST_AsBinary(geom)"))
+    """).to_pandas()
+    _log(f"  {len(cp_wh_raw):,} codepoint records within White Horse")
+
+    # ---- Write White Horse ORC files ----
+    _log("Writing White Horse UPRN ORC…")
+    uprn_wh_pd["geom_wkb"] = uprn_wh_pd["geometry"].apply(_geom_to_wkb)
+    uprn_wh_out = uprn_wh_pd.drop(columns=["geometry"])
+    _write_orc(uprn_wh_out, ORC_PATHS["uprn_wh"])
+    _log(f"  Wrote {ORC_PATHS['uprn_wh']}")
+
+    _log("Writing White Horse CodePoint ORC…")
+    cp_wh_pd = cp_wh_raw.copy()
+    cp_wh_pd["geom_wkb"] = cp_wh_pd["geometry"].apply(_geom_to_wkb)
+    cp_wh_agg = (
+        cp_wh_pd.groupby("geom_wkb", sort=False)["postcode"]
+        .agg(",".join)
+        .reset_index()[["postcode", "geom_wkb"]]
     )
-    cp_wh.write.mode("overwrite").orc(ORC_PATHS["cp_wh"])
-    print(f"Wrote {ORC_PATHS['cp_wh']}")
+    _write_orc(cp_wh_agg, ORC_PATHS["cp_wh"])
+    _log(f"  Wrote {ORC_PATHS['cp_wh']} ({len(cp_wh_agg):,} rows)")
 
-    # ---- CSV exports for cloud services ----
-    uprn_wh_pd = uprn_wh.toPandas()
-    uprn_wh_pd["wkt"] = uprn_wh_pd["geom_wkb"].apply(
-        lambda b: None  # WKT generated from PostGIS on load
-    )
-    cp_wh_pd = cp_wh.toPandas()
-
-    # Export via PostGIS (load first, then query back with WKT)
-    spark.stop()
-    print("Spark stopped. Loading into PostGIS…")
-
+    # ---- Load into PostGIS ----
+    _log("Loading all ORC files into PostGIS…")
     load_all_orc()
 
-    # CSV export from PostGIS (includes WKT)
+    # ---- CSV exports for cloud services ----
+    _log("Writing CSV exports for cloud services…")
     pd.read_sql("SELECT *, ST_AsText(geom) wkt FROM os.open_uprn_white_horse", engine).to_csv(
         "data/open_uprn_white_horse.csv", index=False, header=False, sep="|"
     )
     pd.read_sql("SELECT *, ST_AsText(geom) wkt FROM os.code_point_open_white_horse", engine).to_csv(
         "data/code_point_open_white_horse.csv", index=False, header=False, sep="|"
     )
-    print("Wrote CSV exports for cloud services.")
+    _log("Done.")
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +289,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--from-orc",
         action="store_true",
-        help="Load from existing ORC files (no Spark needed)",
+        help="Load from existing ORC files (no SedonaDB needed)",
     )
     args = parser.parse_args()
 

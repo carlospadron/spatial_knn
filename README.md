@@ -18,7 +18,7 @@ A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based
    docker compose up -d
    ```
 3. Load data into the database (**one-time setup** — data is stored in a named Docker volume and persists across restarts). Use whichever source you have available:
-   - **From ORC files** (preprocessed, no Spark needed):
+   - **From ORC files** (preprocessed, no SedonaDB needed):
      ```bash
      uv run --env-file .env prepare_data.py --from-orc
      ```
