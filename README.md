@@ -18,14 +18,26 @@ A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based
    docker compose up -d
    ```
 3. Load data into the database (**one-time setup** — data is stored in a named Docker volume and persists across restarts). Use whichever source you have available:
-   - **From ORC files** (preprocessed, faster):
+   - **From ORC files** (preprocessed, no Spark needed):
      ```bash
-     uv run --env-file .env load_orc_to_pg.py
+     uv run --env-file .env prepare_data.py --from-orc
      ```
-   - **From raw CSV files**:
+   - **From raw CSV/GPKG files** (transforms, writes ORC + CSV, loads PostGIS):
      ```bash
-     uv run --env-file .env raw_data_to_sql_and_csv.py
+     uv run --env-file .env prepare_data.py
      ```
+
+### Raw data requirements
+
+If running `--from-raw`, download the following Ordnance Survey open datasets and place them under `data/raw/`:
+
+| File | Source | Description |
+|---|---|---|
+| `data/raw/osopenuprn_<date>.csv` | [OS Open UPRN](https://osdatahub.os.uk/downloads/open/OpenUPRN) | Unique Property Reference Numbers with coordinates (full GB) |
+| `data/raw/codepo_gb.gpkg` | [Code-Point Open](https://osdatahub.os.uk/downloads/open/CodePointOpen) | Postcode centroids (GeoPackage format) |
+| `data/raw/bdline_gb.gpkg` | [Boundary-Line](https://osdatahub.os.uk/downloads/open/BoundaryLine) | Administrative boundaries incl. district polygons (GeoPackage format) |
+
+All three are free to download from the [OS Data Hub](https://osdatahub.os.uk) (account required).
 
 ## Running the benchmarks
 
