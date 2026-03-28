@@ -18,11 +18,11 @@ A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based
    docker compose up -d
    ```
 3. Load data into the database (**one-time setup** — data is stored in a named Docker volume and persists across restarts). Use whichever source you have available:
-   - **From ORC files** (preprocessed, no SedonaDB needed):
+   - **From Parquet files** (preprocessed, no raw data needed):
      ```bash
-     uv run --env-file .env prepare_data.py --from-orc
+     uv run --env-file .env prepare_data.py --from-parquet
      ```
-   - **From raw CSV/GPKG files** (transforms, writes ORC + CSV, loads PostGIS):
+   - **From raw CSV/GPKG files** (transforms, writes Parquet + CSV, loads PostGIS):
      ```bash
      uv run --env-file .env prepare_data.py
      ```
@@ -47,7 +47,7 @@ All solutions can be run via `main.py`, which is a Jupyter-style notebook (using
 
 - **SedonaDB** — data fits in memory, you want SQL semantics with Sedona's spatial functions without a server; Very fast, simple to use.
 - **Shapely / Geopandas** — data fits in memory, Python-only stack, geometries beyond points.
-- **DuckDB** — data fits in memory, you want SQL semantics without a server, or you are already working with Parquet/ORC files.
+- **DuckDB** — data fits in memory, you want SQL semantics without a server, or you are already working with Parquet files.
 - **Scikit-Learn** — data fits in memory, points only. Could be faster than Shapely when finding only one neighbour per point, but cannot break ties by postcode (or any secondary sort key), so results may differ from the other implementations in those edge cases. It is not as flexible as the other python solutions so it might be used in particular cases.
 - **SQL (PostgreSQL + PostGIS)** — data does not fit in memory, or you need to join against other tables and write complex queries.
 - **C# (.NET / NetTopologySuite)** — already in the .NET ecosystem; API mirrors the JVM JTS library. Similar speed than the JVM solutions, easy to write and easier to run as it requires less settings.
