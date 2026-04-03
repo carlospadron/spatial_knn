@@ -189,10 +189,9 @@ def from_raw():
     _log(f"  Wrote {PARQUET_PATHS['uprn_full']} ({n_uprn:,} rows)")
 
     _log("Writing full GB CodePoint Parquet…")
-    n_cp_full = con.execute("SELECT COUNT(DISTINCT geom) FROM _codepoint").fetchone()[0]
+    n_cp_full = con.execute("SELECT COUNT(*) FROM _codepoint").fetchone()[0]
     con.execute(f"""
-        COPY (SELECT string_agg(postcode, ',') AS postcode, ST_AsWKB(geom) AS geom_wkb
-              FROM _codepoint GROUP BY geom)
+        COPY (SELECT postcode, ST_AsWKB(geom) AS geom_wkb FROM _codepoint)
         TO '{PARQUET_PATHS["cp_full"]}' (FORMAT PARQUET, CODEC 'ZSTD', COMPRESSION_LEVEL 19)
     """)
     _log(f"  Wrote {PARQUET_PATHS['cp_full']} ({n_cp_full:,} rows)")
@@ -213,13 +212,13 @@ def from_raw():
 
     _log("Filtering CodePoint to White Horse via ST_Intersects…")
     n_cp_wh = con.execute("""
-        SELECT COUNT(DISTINCT geom) FROM _codepoint
+        SELECT COUNT(*) FROM _codepoint
         WHERE ST_Intersects(geom, (SELECT geom FROM _wh))
     """).fetchone()[0]
     _log(f"  {n_cp_wh:,} codepoint records within White Horse")
     con.execute(f"""
-        COPY (SELECT string_agg(postcode, ',') AS postcode, ST_AsWKB(geom) AS geom_wkb
-              FROM _codepoint WHERE ST_Intersects(geom, (SELECT geom FROM _wh)) GROUP BY geom)
+        COPY (SELECT postcode, ST_AsWKB(geom) AS geom_wkb
+              FROM _codepoint WHERE ST_Intersects(geom, (SELECT geom FROM _wh)))
         TO '{PARQUET_PATHS["cp_wh"]}' (FORMAT PARQUET, CODEC 'ZSTD', COMPRESSION_LEVEL 19)
     """)
     _log(f"  Wrote {PARQUET_PATHS['cp_wh']} ({n_cp_wh:,} rows)")
