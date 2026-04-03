@@ -41,7 +41,39 @@ All three are free to download from the [OS Data Hub](https://osdatahub.os.uk) (
 
 ## Running the benchmarks
 
-All solutions can be run via `main.py`, which is a Jupyter-style notebook (using `# %%` cell markers). Open it in VS Code and run cells individually, or execute it top to bottom to benchmark all implementations and generate the results chart.
+`main.py` is a Jupyter-style notebook (using `# %%` cell markers). Open it in VS Code and run cells individually, or execute it top to bottom to benchmark all implementations and generate `results.png`.
+
+It runs benchmarks for two datasets defined in the `SCENARIOS` list at the top of the file:
+
+| Dataset | UPRN table | Codepoint table |
+|---|---|---|
+| White Horse (small) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` |
+| Full GB (large) | `os.os_open_uprn` | `os.codepoint_polygons` |
+
+Both scenarios are run automatically in sequence when you run all cells top to bottom. `main.py` can also be run directly from the command line:
+
+```bash
+# Run all scenarios
+uv run --env-file .env main.py
+
+# Run a single scenario
+uv run --env-file .env main.py --scenario "White Horse (small)"
+uv run --env-file .env main.py --scenario "Full GB (large)"
+```
+
+To run only one scenario in notebook mode, comment out the other entry in `SCENARIOS`.
+
+Individual scripts can also be run directly. Each accepts `--uprn-table` and `--codepoint-table` arguments (defaulting to the White Horse dataset if omitted):
+
+```bash
+# White Horse (default)
+uv run --env-file .env python/geopandas/knn.py
+
+# Full GB
+uv run --env-file .env python/geopandas/knn.py \
+  --uprn-table os.os_open_uprn \
+  --codepoint-table os.codepoint_polygons
+```
 
 ## When to use what
 

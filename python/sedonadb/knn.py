@@ -1,3 +1,4 @@
+import argparse
 import os
 from pathlib import Path
 
@@ -6,13 +7,18 @@ import pandas as pd
 from sedona.db import connect
 from sqlalchemy import create_engine
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--uprn-table", default="os.open_uprn_white_horse")
+parser.add_argument("--codepoint-table", default="os.code_point_open_white_horse")
+args = parser.parse_args()
+
 user = os.getenv("DB_USER")
 password = os.getenv("DB_PASSWORD")
 host = os.getenv("DB_HOST", "localhost")
 port = os.getenv("DB_PORT", "5432")
 database = os.getenv("DB_NAME", "gis")
-uprn_table = os.getenv("UPRN_TABLE", "os.open_uprn_white_horse")
-codepoint_table = os.getenv("CODEPOINT_TABLE", "os.code_point_open_white_horse")
+uprn_table = args.uprn_table
+codepoint_table = args.codepoint_table
 engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
 
 sd = connect()

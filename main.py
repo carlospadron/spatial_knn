@@ -10,13 +10,13 @@ import matplotlib.ticker as ticker
 import pandas as pd
 
 
-def run_script(script_path, extra_env=None):
-    env = {**os.environ}
-    if extra_env:
-        env.update(extra_env)
-    result = subprocess.run(
-        ["uv", "run", "--env-file", ".env", script_path], capture_output=True, text=True, env=env
-    )
+def run_script(script_path, uprn_table=None, codepoint_table=None):
+    cmd = ["uv", "run", "--env-file", ".env", script_path]
+    if uprn_table:
+        cmd += ["--uprn-table", uprn_table]
+    if codepoint_table:
+        cmd += ["--codepoint-table", codepoint_table]
+    result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"FAILED\n{result.stderr}")
         return None
@@ -25,15 +25,16 @@ def run_script(script_path, extra_env=None):
     return elapsed
 
 
-def run_script_docker(script_path, extra_env=None):
+def run_script_docker(script_path, uprn_table=None, codepoint_table=None):
     """Run a Python script inside the sedona Docker container (Spark + Sedona pre-installed)."""
-    env_args = []
-    if extra_env:
-        for k, v in extra_env.items():
-            env_args += ["-e", f"{k}={v}"]
+    extra_args = []
+    if uprn_table:
+        extra_args += ["--uprn-table", uprn_table]
+    if codepoint_table:
+        extra_args += ["--codepoint-table", codepoint_table]
     start = time.time()
     result = subprocess.run(
-        ["docker", "compose", "exec", "-T"] + env_args + ["sedona", "python3", script_path],
+        ["docker", "compose", "exec", "-T", "sedona", "python3", script_path] + extra_args,
         capture_output=True,
         text=True,
     )
@@ -203,15 +204,13 @@ SCENARIOS = [
 
 
 def run_scenario(scenario):
-    env = {
-        "UPRN_TABLE": scenario["uprn_table"],
-        "CODEPOINT_TABLE": scenario["codepoint_table"],
-    }
+    uprn_table = scenario["uprn_table"]
+    codepoint_table = scenario["codepoint_table"]
     sfx = scenario["result_suffix"]
     print(f"\n{'='*60}")
     print(f"Running scenario: {scenario['name']}")
-    print(f"  UPRN table:      {scenario['uprn_table']}")
-    print(f"  Codepoint table: {scenario['codepoint_table']}")
+    print(f"  UPRN table:      {uprn_table}")
+    print(f"  Codepoint table: {codepoint_table}")
     print(f"{'='*60}\n")
 
     timings = []
@@ -220,68 +219,68 @@ def run_scenario(scenario):
     # # SQL nearest neighbour (distinct)
 
     print("--- SQL distinct ---")
-    timings.append({"test": "SQL distinct", "elapsed_s": run_script("sql/sql_distinct/knn.py", extra_env=env)})
+    timings.append({"test": "SQL distinct", "elapsed_s": run_script("sql/sql_distinct/knn.py", uprn_table, codepoint_table)})
     reference = pd.read_csv("sql/sql_distinct/result.csv")
 
     # %% [markdown]
     # # SQL nearest neighbour (lateral)
 
     print("--- SQL lateral ---")
-    timings.append({"test": "SQL lateral", "elapsed_s": run_script("sql/sql_lateral/knn.py", extra_env=env)})
+    timings.append({"test": "SQL lateral", "elapsed_s": run_script("sql/sql_lateral/knn.py", uprn_table, codepoint_table)})
     check("sql/sql_lateral/result.csv", reference)
 
     # %% [markdown]
     # # Geopandas sjoin_nearest
 
     print("--- GeoPandas sjoin_nearest ---")
-    timings.append({"test": "Geopandas sjoin_nearest", "elapsed_s": run_script("python/geopandas/knn.py", extra_env=env)})
+    timings.append({"test": "Geopandas sjoin_nearest", "elapsed_s": run_script("python/geopandas/knn.py", uprn_table, codepoint_table)})
     check("python/geopandas/result.csv", reference)
 
     # %% [markdown]
     # # python nearest neighbour - shapely (all vs all)
 
     print("--- Shapely all vs all ---")
-    timings.append({"test": "Shapely all vs all", "elapsed_s": run_script("python/shapely_all_vs_all/knn.py", extra_env=env)})
+    timings.append({"test": "Shapely all vs all", "elapsed_s": run_script("python/shapely_all_vs_all/knn.py", uprn_table, codepoint_table)})
     check("python/shapely_all_vs_all/result.csv", reference)
 
     # %% [markdown]
     # # python nearest neighbour - shapely (strtree)
 
     print("--- Shapely strtree ---")
-    timings.append({"test": "Shapely strtree", "elapsed_s": run_script("python/shapely_strtree/knn.py", extra_env=env)})
+    timings.append({"test": "Shapely strtree", "elapsed_s": run_script("python/shapely_strtree/knn.py", uprn_table, codepoint_table)})
     check("python/shapely_strtree/result.csv", reference)
 
     # %% [markdown]
     # # Scikit-Learn
 
     print("--- Scikit-Learn ---")
-    timings.append({"test": "Scikit-Learn nearest neighbour", "elapsed_s": run_script("python/sklearn/knn.py", extra_env=env)})
+    timings.append({"test": "Scikit-Learn nearest neighbour", "elapsed_s": run_script("python/sklearn/knn.py", uprn_table, codepoint_table)})
     check("python/sklearn/result.csv", reference)
 
     # %% [markdown]
     # # Apache Sedona partial sql
 
     print("--- Apache Sedona partial sql ---")
-    timings.append({"test": "Apache Sedona partial sql", "elapsed_s": run_script_docker("python/sedona_partial/knn.py", extra_env=env)})
+    timings.append({"test": "Apache Sedona partial sql", "elapsed_s": run_script_docker("python/sedona_partial/knn.py", uprn_table, codepoint_table)})
     check("python/sedona_partial/result.csv", reference)
 
     # %% [markdown]
     # # Apache Sedona pure sql
 
     print("--- Apache Sedona pure sql ---")
-    timings.append({"test": "Apache Sedona pure sql", "elapsed_s": run_script_docker("python/sedona_pure/knn.py", extra_env=env)})
+    timings.append({"test": "Apache Sedona pure sql", "elapsed_s": run_script_docker("python/sedona_pure/knn.py", uprn_table, codepoint_table)})
     check("python/sedona_pure/result.csv", reference)
 
     # %% [markdown]
     # # Apache Sedona KNN operator
 
     print("--- Apache Sedona st_knn ---")
-    timings.append({"test": "Apache Sedona st_knn", "elapsed_s": run_script_docker("python/sedona_knn/knn.py", extra_env=env)})
+    timings.append({"test": "Apache Sedona st_knn", "elapsed_s": run_script_docker("python/sedona_knn/knn.py", uprn_table, codepoint_table)})
     check("python/sedona_knn/result.csv", reference)
 
     # %% [markdown]
     # # Kotlin / Scala / Rust / C# / Go
-    # (compiled-language runners pick up UPRN_TABLE / CODEPOINT_TABLE via injected env)
+    # (compiled-language runners use env vars — see run_kotlin/run_scala/run_rust/run_csharp/run_go)
 
     print("--- Kotlin ---")
     timings.append({"test": "Kotlin", "elapsed_s": run_kotlin()})
@@ -312,27 +311,51 @@ def run_scenario(scenario):
     # # DuckDB
 
     print("--- DuckDB ---")
-    timings.append({"test": "DuckDB", "elapsed_s": run_script("python/duckdb/knn.py", extra_env=env)})
+    timings.append({"test": "DuckDB", "elapsed_s": run_script("python/duckdb/knn.py", uprn_table, codepoint_table)})
     check("python/duckdb/result.csv", reference)
 
     # %% [markdown]
     # # SedonaDB
 
     print("--- SedonaDB ---")
-    timings.append({"test": "SedonaDB", "elapsed_s": run_script("python/sedonadb/knn.py", extra_env=env)})
+    timings.append({"test": "SedonaDB", "elapsed_s": run_script("python/sedonadb/knn.py", uprn_table, codepoint_table)})
     check("python/sedonadb/result.csv", reference)
 
-    csv_path = f"timings{sfx}.csv"
-    pd.DataFrame(timings).to_csv(csv_path, index=False)
-    print(f"\nTimings written to {csv_path}")
+    # Append new timings to baselines.csv; skip None (failed) runs
+    new_rows = pd.DataFrame([
+        {"dataset": scenario["name"], "test": t["test"], "elapsed_s": t["elapsed_s"]}
+        for t in timings if t["elapsed_s"] is not None
+    ])
+    if not new_rows.empty:
+        header = not os.path.exists("baselines.csv")
+        new_rows.to_csv("baselines.csv", mode="a", index=False, header=header)
+        print(f"\nAppended {len(new_rows)} timings to baselines.csv")
 
     return reference
 
 
 # %%
-# Run both scenarios
+# Run scenarios — filtered by --scenario CLI arg when run as a script
+import argparse as _argparse
+import sys as _sys
+
+_SCENARIO_NAMES = [s["name"] for s in SCENARIOS]
+
+if __name__ == "__main__":
+    _parser = _argparse.ArgumentParser(description="Run KNN benchmarks")
+    _parser.add_argument(
+        "--scenario",
+        choices=_SCENARIO_NAMES,
+        default=None,
+        help="Run a single named scenario (default: run all)",
+    )
+    _args = _parser.parse_args()
+    _scenarios_to_run = [s for s in SCENARIOS if _args.scenario is None or s["name"] == _args.scenario]
+else:
+    _scenarios_to_run = SCENARIOS
+
 scenario_references = {}
-for scenario in SCENARIOS:
+for scenario in _scenarios_to_run:
     ref = run_scenario(scenario)
     scenario_references[scenario["name"]] = ref
 
@@ -365,8 +388,13 @@ merged[merged["destination_x"] != merged["destination_y"]]
 # # Results — per-scenario benchmark tables and plots
 
 # %%
-# Baseline timings loaded from baselines.csv (dataset, test, elapsed_s)
-_baselines = pd.read_csv("baselines.csv")
+# Load baselines.csv and keep the best (minimum) elapsed_s per (dataset, test)
+_baselines = (
+    pd.read_csv("baselines.csv")
+    .groupby(["dataset", "test"], sort=False)["elapsed_s"]
+    .min()
+    .reset_index()
+)
 RESULTS_BY_SCENARIO = {
     dataset: grp[["test", "elapsed_s"]].to_dict("records")
     for dataset, grp in _baselines.groupby("dataset", sort=False)

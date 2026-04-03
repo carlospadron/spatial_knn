@@ -27,24 +27,3 @@ White Horse (small),Athena,110.0
 White Horse (small),Snowflake cartesian,75.0
 White Horse (small),Snowflake h3,45.0
 White Horse (small),Databricks pure sql,60.0
-Full GB (large),SQL distinct,0
-Full GB (large),SQL lateral,0
-Full GB (large),Geopandas sjoin_nearest,0
-Full GB (large),Shapely all vs all,0
-Full GB (large),Shapely strtree,0
-Full GB (large),Scikit-Learn nearest neighbour,0
-Full GB (large),Apache Sedona partial sql,0
-Full GB (large),Apache Sedona pure sql,0
-Full GB (large),Apache Sedona st_knn,0
-Full GB (large),kotlin all vs all,0
-Full GB (large),kotlin strtree,0
-Full GB (large),scala all vs all,0
-Full GB (large),scala strtree,0
-Full GB (large),rust all vs all,0
-Full GB (large),rust strtree,0
-Full GB (large),C# all vs all,0
-Full GB (large),C# strtree,0
-Full GB (large),Go all vs all,0
-Full GB (large),Go strtree,0
-Full GB (large),DuckDB,0
-Full GB (large),SedonaDB,0
