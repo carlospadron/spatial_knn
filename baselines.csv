@@ -1,0 +1,50 @@
+dataset,test,elapsed_s
+White Horse (small),SQL distinct,130.043192
+White Horse (small),SQL lateral,62.638035
+White Horse (small),Geopandas sjoin_nearest,1.791905
+White Horse (small),Shapely all vs all,126.666341
+White Horse (small),Shapely strtree,1.319851
+White Horse (small),Scikit-Learn nearest neighbour,25.35589
+White Horse (small),Apache Sedona partial sql,152.106516
+White Horse (small),Apache Sedona pure sql,157.501045
+White Horse (small),Apache Sedona st_knn,9.269729
+White Horse (small),kotlin all vs all,32.706
+White Horse (small),kotlin strtree,3.627
+White Horse (small),scala all vs all,27.585
+White Horse (small),scala strtree,4.142
+White Horse (small),rust all vs all,4.044441
+White Horse (small),rust strtree,0.346612
+White Horse (small),C# all vs all,22.904955
+White Horse (small),C# strtree,5.8948
+White Horse (small),Go all vs all,0.91674
+White Horse (small),Go strtree,0.321024
+White Horse (small),DuckDB,17.465032
+White Horse (small),SedonaDB,0.750684
+White Horse (small),BigQuery,3.0
+White Horse (small),BigQuery (Slot time consumed),310.0
+White Horse (small),RedShift,26.0
+White Horse (small),Athena,110.0
+White Horse (small),Snowflake cartesian,75.0
+White Horse (small),Snowflake h3,45.0
+White Horse (small),Databricks pure sql,60.0
+Full GB (large),SQL distinct,0
+Full GB (large),SQL lateral,0
+Full GB (large),Geopandas sjoin_nearest,0
+Full GB (large),Shapely all vs all,0
+Full GB (large),Shapely strtree,0
+Full GB (large),Scikit-Learn nearest neighbour,0
+Full GB (large),Apache Sedona partial sql,0
+Full GB (large),Apache Sedona pure sql,0
+Full GB (large),Apache Sedona st_knn,0
+Full GB (large),kotlin all vs all,0
+Full GB (large),kotlin strtree,0
+Full GB (large),scala all vs all,0
+Full GB (large),scala strtree,0
+Full GB (large),rust all vs all,0
+Full GB (large),rust strtree,0
+Full GB (large),C# all vs all,0
+Full GB (large),C# strtree,0
+Full GB (large),Go all vs all,0
+Full GB (large),Go strtree,0
+Full GB (large),DuckDB,0
+Full GB (large),SedonaDB,0
