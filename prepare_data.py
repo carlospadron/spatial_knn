@@ -16,6 +16,8 @@ import argparse
 import glob
 import os
 
+import logging
+
 import duckdb
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -36,8 +38,12 @@ PARQUET_PATHS = {
 }
 
 
-def _log(msg):
-    print(f"[{pd.Timestamp.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+_log = logging.getLogger(__name__).info
 
 
 def _pg_attach(con):
@@ -78,11 +84,14 @@ def load_uprn_parquet(parquet_path, target_table, index_name):
         n = conn.execute(text("SELECT COUNT(*) FROM _uprn_stage")).scalar()
         _log(f"  {n:,} rows staged \u2014 building geometry\u2026")
         conn.execute(text(f"""
+            WITH g AS (
+                SELECT uprn, easting, northing, lat, lon,
+                       ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700) AS geom
+                FROM _uprn_stage
+            )
             INSERT INTO {target_table} (uprn, easting, northing, lat, lon, geom, wkt)
-            SELECT uprn, easting, northing, lat, lon,
-                   ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700),
-                   ST_AsText(ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700))
-            FROM _uprn_stage
+            SELECT uprn, easting, northing, lat, lon, geom, ST_AsText(geom)
+            FROM g
             ON CONFLICT (uprn) DO NOTHING
         """))
         conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom)"))
@@ -103,11 +112,14 @@ def load_codepoint_parquet(parquet_path, target_table, index_name):
         n = conn.execute(text("SELECT COUNT(*) FROM _cp_stage")).scalar()
         _log(f"  {n:,} rows staged \u2014 building geometry\u2026")
         conn.execute(text(f"""
+            WITH g AS (
+                SELECT postcode,
+                       ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700) AS geom
+                FROM _cp_stage
+            )
             INSERT INTO {target_table} (postcode, geom, wkt)
-            SELECT postcode,
-                   ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700),
-                   ST_AsText(ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700))
-            FROM _cp_stage
+            SELECT postcode, geom, ST_AsText(geom)
+            FROM g
             ON CONFLICT (postcode) DO NOTHING
         """))
         conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom)"))

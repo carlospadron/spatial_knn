@@ -21,6 +21,7 @@ scala/.bsp/sbt.json
 
 #data
 data/raw/*
+*.parquet
 
 
 
