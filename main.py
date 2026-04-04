@@ -14,7 +14,9 @@ def main():
         help="Run a single named scenario (default: run all)",
     )
     args = parser.parse_args()
-    scenarios_to_run = [s for s in SCENARIOS if args.scenario is None or s["name"] == args.scenario]
+    scenarios_to_run = [
+        s for s in SCENARIOS if args.scenario is None or s["name"] == args.scenario
+    ]
 
     scenario_references = {}
     for scenario in scenarios_to_run:
@@ -52,4 +54,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

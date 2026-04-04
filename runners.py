@@ -8,22 +8,35 @@ import numpy as np
 import pandas as pd
 
 
-def run_script(script_path, uprn_table=None, codepoint_table=None, timeout=None):
+def run_script(
+    script_path,
+    uprn_table=None,
+    codepoint_table=None,
+    timeout=None,
+    statement_timeout_ms=None,
+):
     cmd = ["uv", "run", "--env-file", ".env", script_path]
     if uprn_table:
         cmd += ["--uprn-table", uprn_table]
     if codepoint_table:
         cmd += ["--codepoint-table", codepoint_table]
+    if statement_timeout_ms:
+        cmd += ["--statement-timeout", str(statement_timeout_ms)]
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
         print(f"TIMEOUT after {timeout}s")
         return None
-    if result.returncode != 0:
-        print(f"FAILED\n{result.stderr}")
+    if proc.returncode != 0:
+        print(f"FAILED\n{stderr}")
         return None
-    elapsed = pd.Timedelta(result.stdout.strip()).total_seconds()
-    print(f"Elapsed: {result.stdout.strip()}")
+    elapsed = pd.Timedelta(stdout.strip()).total_seconds()
+    print(f"Elapsed: {stdout.strip()}")
     return elapsed
 
 
@@ -37,7 +50,8 @@ def run_script_docker(script_path, uprn_table=None, codepoint_table=None, timeou
     start = time.time()
     try:
         result = subprocess.run(
-            ["docker", "compose", "exec", "-T", "sedona", "python3", script_path] + extra_args,
+            ["docker", "compose", "exec", "-T", "sedona", "python3", script_path]
+            + extra_args,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -61,7 +75,17 @@ def run_kotlin(timeout=None):
     start = time.time()
     try:
         result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T", "kotlin", "mvn", "compile", "exec:java"],
+            [
+                "docker",
+                "compose",
+                "run",
+                "--rm",
+                "-T",
+                "kotlin",
+                "mvn",
+                "compile",
+                "exec:java",
+            ],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -231,15 +255,18 @@ SCENARIOS = [
 def run_scenario(scenario):
     uprn_table = scenario["uprn_table"]
     codepoint_table = scenario["codepoint_table"]
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running scenario: {scenario['name']}")
     print(f"  UPRN table:      {uprn_table}")
     print(f"  Codepoint table: {codepoint_table}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     timings = []
     timeout = scenario.get("timeout")
     reference_csv = scenario.get("reference_csv")
+    # Pass statement_timeout slightly under the wall-clock timeout so Postgres
+    # cancels the query itself before the subprocess timeout fires.
+    sql_timeout_ms = int(timeout * 950) if timeout else None
 
     if reference_csv:
         print("--- Rust (generating reference) ---")
@@ -247,39 +274,122 @@ def run_scenario(scenario):
         reference = pd.read_csv(reference_csv)
     else:
         print("--- SQL distinct ---")
-        timings.append({"test": "SQL distinct", "elapsed_s": run_script("sql/sql_distinct/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+        timings.append(
+            {
+                "test": "SQL distinct",
+                "elapsed_s": run_script(
+                    "sql/sql_distinct/knn.py",
+                    uprn_table,
+                    codepoint_table,
+                    timeout=timeout,
+                    statement_timeout_ms=sql_timeout_ms,
+                ),
+            }
+        )
         reference = pd.read_csv("sql/sql_distinct/result.csv")
 
     print("--- SQL lateral ---")
-    timings.append({"test": "SQL lateral", "elapsed_s": run_script("sql/sql_lateral/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "SQL lateral",
+            "elapsed_s": run_script(
+                "sql/sql_lateral/knn.py",
+                uprn_table,
+                codepoint_table,
+                timeout=timeout,
+                statement_timeout_ms=sql_timeout_ms,
+            ),
+        }
+    )
     check("sql/sql_lateral/result.csv", reference)
 
     print("--- GeoPandas sjoin_nearest ---")
-    timings.append({"test": "Geopandas sjoin_nearest", "elapsed_s": run_script("python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "Geopandas sjoin_nearest",
+            "elapsed_s": run_script(
+                "python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout
+            ),
+        }
+    )
     check("python/geopandas/result.csv", reference)
 
     print("--- Shapely all vs all ---")
-    timings.append({"test": "Shapely all vs all", "elapsed_s": run_script("python/shapely_all_vs_all/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "Shapely all vs all",
+            "elapsed_s": run_script(
+                "python/shapely_all_vs_all/knn.py",
+                uprn_table,
+                codepoint_table,
+                timeout=timeout,
+            ),
+        }
+    )
     check("python/shapely_all_vs_all/result.csv", reference)
 
     print("--- Shapely strtree ---")
-    timings.append({"test": "Shapely strtree", "elapsed_s": run_script("python/shapely_strtree/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "Shapely strtree",
+            "elapsed_s": run_script(
+                "python/shapely_strtree/knn.py",
+                uprn_table,
+                codepoint_table,
+                timeout=timeout,
+            ),
+        }
+    )
     check("python/shapely_strtree/result.csv", reference)
 
     print("--- Scikit-Learn ---")
-    timings.append({"test": "Scikit-Learn nearest neighbour", "elapsed_s": run_script("python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "Scikit-Learn nearest neighbour",
+            "elapsed_s": run_script(
+                "python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout
+            ),
+        }
+    )
     check("python/sklearn/result.csv", reference)
 
     print("--- Apache Sedona partial sql ---")
-    timings.append({"test": "Apache Sedona partial sql", "elapsed_s": run_script_docker("python/sedona_partial/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "Apache Sedona partial sql",
+            "elapsed_s": run_script_docker(
+                "python/sedona_partial/knn.py",
+                uprn_table,
+                codepoint_table,
+                timeout=timeout,
+            ),
+        }
+    )
     check("python/sedona_partial/result.csv", reference)
 
     print("--- Apache Sedona pure sql ---")
-    timings.append({"test": "Apache Sedona pure sql", "elapsed_s": run_script_docker("python/sedona_pure/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "Apache Sedona pure sql",
+            "elapsed_s": run_script_docker(
+                "python/sedona_pure/knn.py",
+                uprn_table,
+                codepoint_table,
+                timeout=timeout,
+            ),
+        }
+    )
     check("python/sedona_pure/result.csv", reference)
 
     print("--- Apache Sedona st_knn ---")
-    timings.append({"test": "Apache Sedona st_knn", "elapsed_s": run_script_docker("python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "Apache Sedona st_knn",
+            "elapsed_s": run_script_docker(
+                "python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout
+            ),
+        }
+    )
     check("python/sedona_knn/result.csv", reference)
 
     print("--- Kotlin ---")
@@ -309,17 +419,38 @@ def run_scenario(scenario):
     check("go/go_tree.csv", reference)
 
     print("--- DuckDB ---")
-    timings.append({"test": "DuckDB", "elapsed_s": run_script("python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "DuckDB",
+            "elapsed_s": run_script(
+                "python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout
+            ),
+        }
+    )
     check("python/duckdb/result.csv", reference)
 
     print("--- SedonaDB ---")
-    timings.append({"test": "SedonaDB", "elapsed_s": run_script("python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+    timings.append(
+        {
+            "test": "SedonaDB",
+            "elapsed_s": run_script(
+                "python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout
+            ),
+        }
+    )
     check("python/sedonadb/result.csv", reference)
 
-    new_rows = pd.DataFrame([
-        {"dataset": scenario["name"], "test": t["test"], "elapsed_s": t["elapsed_s"]}
-        for t in timings if t["elapsed_s"] is not None
-    ])
+    new_rows = pd.DataFrame(
+        [
+            {
+                "dataset": scenario["name"],
+                "test": t["test"],
+                "elapsed_s": t["elapsed_s"],
+            }
+            for t in timings
+            if t["elapsed_s"] is not None
+        ]
+    )
     if not new_rows.empty:
         header = not os.path.exists("baselines.csv")
         new_rows.to_csv("baselines.csv", mode="a", index=False, header=header)
@@ -353,7 +484,8 @@ def make_plot(baselines, filename="results.png"):
     for i, (dataset, color) in enumerate(zip(datasets, colors)):
         vals = [
             df.loc[(df["dataset"] == dataset) & (df["test"] == t), "elapsed_s"].iloc[0]
-            if len(df.loc[(df["dataset"] == dataset) & (df["test"] == t)]) > 0 else 0
+            if len(df.loc[(df["dataset"] == dataset) & (df["test"] == t)]) > 0
+            else 0
             for t in all_tests
         ]
         bars = ax.barh(y + i * bar_h, vals, height=bar_h, label=dataset, color=color)
