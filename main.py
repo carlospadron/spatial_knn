@@ -10,13 +10,17 @@ import matplotlib.ticker as ticker
 import pandas as pd
 
 
-def run_script(script_path, uprn_table=None, codepoint_table=None):
+def run_script(script_path, uprn_table=None, codepoint_table=None, timeout=None):
     cmd = ["uv", "run", "--env-file", ".env", script_path]
     if uprn_table:
         cmd += ["--uprn-table", uprn_table]
     if codepoint_table:
         cmd += ["--codepoint-table", codepoint_table]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT after {timeout}s")
+        return None
     if result.returncode != 0:
         print(f"FAILED\n{result.stderr}")
         return None
@@ -25,7 +29,7 @@ def run_script(script_path, uprn_table=None, codepoint_table=None):
     return elapsed
 
 
-def run_script_docker(script_path, uprn_table=None, codepoint_table=None):
+def run_script_docker(script_path, uprn_table=None, codepoint_table=None, timeout=None):
     """Run a Python script inside the sedona Docker container (Spark + Sedona pre-installed)."""
     extra_args = []
     if uprn_table:
@@ -33,11 +37,16 @@ def run_script_docker(script_path, uprn_table=None, codepoint_table=None):
     if codepoint_table:
         extra_args += ["--codepoint-table", codepoint_table]
     start = time.time()
-    result = subprocess.run(
-        ["docker", "compose", "exec", "-T", "sedona", "python3", script_path] + extra_args,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "exec", "-T", "sedona", "python3", script_path] + extra_args,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT after {timeout}s")
+        return None
     elapsed = time.time() - start
     if result.stdout.strip():
         print(result.stdout.strip())
@@ -49,24 +58,29 @@ def run_script_docker(script_path, uprn_table=None, codepoint_table=None):
     return elapsed
 
 
-def run_kotlin():
+def run_kotlin(timeout=None):
     """Run the Kotlin Maven project inside the kotlin Docker container."""
     start = time.time()
-    result = subprocess.run(
-        [
-            "docker",
-            "compose",
-            "run",
-            "--rm",
-            "-T",
-            "kotlin",
-            "mvn",
-            "compile",
-            "exec:java",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "run",
+                "--rm",
+                "-T",
+                "kotlin",
+                "mvn",
+                "compile",
+                "exec:java",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT after {timeout}s")
+        return None
     elapsed = time.time() - start
     if result.stdout.strip():
         print(result.stdout.strip())
@@ -79,14 +93,19 @@ def run_kotlin():
     return elapsed
 
 
-def run_scala():
+def run_scala(timeout=None):
     """Run the Scala sbt project inside the scala Docker container."""
     start = time.time()
-    result = subprocess.run(
-        ["docker", "compose", "run", "--rm", "-T", "scala", "sbt", "run"],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "run", "--rm", "-T", "scala", "sbt", "run"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT after {timeout}s")
+        return None
     elapsed = time.time() - start
     if result.stdout.strip():
         print(result.stdout.strip())
@@ -99,7 +118,7 @@ def run_scala():
     return elapsed
 
 
-def run_rust():
+def run_rust(timeout=None):
     """Run the Rust project locally using cargo."""
     env_vars = {}
     with open(".env") as f:
@@ -110,13 +129,18 @@ def run_rust():
                 env_vars[key.strip()] = val.strip()
     env = {**os.environ, **env_vars}
     start = time.time()
-    result = subprocess.run(
-        ["cargo", "run", "--release"],
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd="rust",
-    )
+    try:
+        result = subprocess.run(
+            ["cargo", "run", "--release"],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd="rust",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT after {timeout}s")
+        return None
     elapsed = time.time() - start
     if result.stdout.strip():
         print(result.stdout.strip())
@@ -129,14 +153,19 @@ def run_rust():
     return elapsed
 
 
-def run_csharp():
+def run_csharp(timeout=None):
     """Run the C# project locally using dotnet."""
     start = time.time()
-    result = subprocess.run(
-        ["dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT after {timeout}s")
+        return None
     elapsed = time.time() - start
     if result.stdout.strip():
         print(result.stdout.strip())
@@ -149,7 +178,7 @@ def run_csharp():
     return elapsed
 
 
-def run_go():
+def run_go(timeout=None):
     """Run the Go project locally."""
     env_vars = {}
     with open(".env") as f:
@@ -160,9 +189,14 @@ def run_go():
                 env_vars[key.strip()] = val.strip()
     env = {**os.environ, **env_vars}
     start = time.time()
-    result = subprocess.run(
-        ["go", "run", "."], capture_output=True, text=True, env=env, cwd="go"
-    )
+    try:
+        result = subprocess.run(
+            ["go", "run", "."], capture_output=True, text=True, env=env, cwd="go",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT after {timeout}s")
+        return None
     elapsed = time.time() - start
     if result.stdout.strip():
         print(result.stdout.strip())
@@ -199,6 +233,8 @@ SCENARIOS = [
         "codepoint_table": "os.codepoint_polygons",
         "result_suffix": "_full",
         "plot_file": "results_full_gb.png",
+        "reference_csv": "rust/rust_tree.csv",
+        "timeout": 1800,
     },
 ]
 
@@ -214,68 +250,76 @@ def run_scenario(scenario):
     print(f"{'='*60}\n")
 
     timings = []
+    timeout = scenario.get("timeout")
+    reference_csv = scenario.get("reference_csv")
 
-    # %% [markdown]
-    # # SQL nearest neighbour (distinct)
+    if reference_csv:
+        # Run Rust first to generate the reference; skip SQL distinct
+        print("--- Rust (generating reference) ---")
+        timings.append({"test": "Rust", "elapsed_s": run_rust(timeout=timeout)})
+        reference = pd.read_csv(reference_csv)
+    else:
+        # %% [markdown]
+        # # SQL nearest neighbour (distinct)
 
-    print("--- SQL distinct ---")
-    timings.append({"test": "SQL distinct", "elapsed_s": run_script("sql/sql_distinct/knn.py", uprn_table, codepoint_table)})
-    reference = pd.read_csv("sql/sql_distinct/result.csv")
+        print("--- SQL distinct ---")
+        timings.append({"test": "SQL distinct", "elapsed_s": run_script("sql/sql_distinct/knn.py", uprn_table, codepoint_table, timeout=timeout)})
+        reference = pd.read_csv("sql/sql_distinct/result.csv")
 
     # %% [markdown]
     # # SQL nearest neighbour (lateral)
 
     print("--- SQL lateral ---")
-    timings.append({"test": "SQL lateral", "elapsed_s": run_script("sql/sql_lateral/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "SQL lateral", "elapsed_s": run_script("sql/sql_lateral/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("sql/sql_lateral/result.csv", reference)
 
     # %% [markdown]
     # # Geopandas sjoin_nearest
 
     print("--- GeoPandas sjoin_nearest ---")
-    timings.append({"test": "Geopandas sjoin_nearest", "elapsed_s": run_script("python/geopandas/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "Geopandas sjoin_nearest", "elapsed_s": run_script("python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/geopandas/result.csv", reference)
 
     # %% [markdown]
     # # python nearest neighbour - shapely (all vs all)
 
     print("--- Shapely all vs all ---")
-    timings.append({"test": "Shapely all vs all", "elapsed_s": run_script("python/shapely_all_vs_all/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "Shapely all vs all", "elapsed_s": run_script("python/shapely_all_vs_all/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/shapely_all_vs_all/result.csv", reference)
 
     # %% [markdown]
     # # python nearest neighbour - shapely (strtree)
 
     print("--- Shapely strtree ---")
-    timings.append({"test": "Shapely strtree", "elapsed_s": run_script("python/shapely_strtree/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "Shapely strtree", "elapsed_s": run_script("python/shapely_strtree/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/shapely_strtree/result.csv", reference)
 
     # %% [markdown]
     # # Scikit-Learn
 
     print("--- Scikit-Learn ---")
-    timings.append({"test": "Scikit-Learn nearest neighbour", "elapsed_s": run_script("python/sklearn/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "Scikit-Learn nearest neighbour", "elapsed_s": run_script("python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/sklearn/result.csv", reference)
 
     # %% [markdown]
     # # Apache Sedona partial sql
 
     print("--- Apache Sedona partial sql ---")
-    timings.append({"test": "Apache Sedona partial sql", "elapsed_s": run_script_docker("python/sedona_partial/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "Apache Sedona partial sql", "elapsed_s": run_script_docker("python/sedona_partial/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/sedona_partial/result.csv", reference)
 
     # %% [markdown]
     # # Apache Sedona pure sql
 
     print("--- Apache Sedona pure sql ---")
-    timings.append({"test": "Apache Sedona pure sql", "elapsed_s": run_script_docker("python/sedona_pure/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "Apache Sedona pure sql", "elapsed_s": run_script_docker("python/sedona_pure/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/sedona_pure/result.csv", reference)
 
     # %% [markdown]
     # # Apache Sedona KNN operator
 
     print("--- Apache Sedona st_knn ---")
-    timings.append({"test": "Apache Sedona st_knn", "elapsed_s": run_script_docker("python/sedona_knn/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "Apache Sedona st_knn", "elapsed_s": run_script_docker("python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/sedona_knn/result.csv", reference)
 
     # %% [markdown]
@@ -283,27 +327,28 @@ def run_scenario(scenario):
     # (compiled-language runners use env vars — see run_kotlin/run_scala/run_rust/run_csharp/run_go)
 
     print("--- Kotlin ---")
-    timings.append({"test": "Kotlin", "elapsed_s": run_kotlin()})
+    timings.append({"test": "Kotlin", "elapsed_s": run_kotlin(timeout=timeout)})
     check("kotlin/kotlin_all_vs_all.csv", reference)
     check("kotlin/kotlin_tree.csv", reference)
 
     print("--- Scala ---")
-    timings.append({"test": "Scala", "elapsed_s": run_scala()})
+    timings.append({"test": "Scala", "elapsed_s": run_scala(timeout=timeout)})
     check("scala/scala_all_vs_all.csv", reference)
     check("scala/scala_tree.csv", reference)
 
-    print("--- Rust ---")
-    timings.append({"test": "Rust", "elapsed_s": run_rust()})
+    if not reference_csv:
+        print("--- Rust ---")
+        timings.append({"test": "Rust", "elapsed_s": run_rust(timeout=timeout)})
     check("rust/rust_all_vs_all.csv", reference)
     check("rust/rust_tree.csv", reference)
 
     print("--- C# ---")
-    timings.append({"test": "C#", "elapsed_s": run_csharp()})
+    timings.append({"test": "C#", "elapsed_s": run_csharp(timeout=timeout)})
     check("csharp_all_vs_all.csv", reference)
     check("csharp_tree.csv", reference)
 
     print("--- Go ---")
-    timings.append({"test": "Go", "elapsed_s": run_go()})
+    timings.append({"test": "Go", "elapsed_s": run_go(timeout=timeout)})
     check("go/go_all_vs_all.csv", reference)
     check("go/go_tree.csv", reference)
 
@@ -311,14 +356,14 @@ def run_scenario(scenario):
     # # DuckDB
 
     print("--- DuckDB ---")
-    timings.append({"test": "DuckDB", "elapsed_s": run_script("python/duckdb/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "DuckDB", "elapsed_s": run_script("python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/duckdb/result.csv", reference)
 
     # %% [markdown]
     # # SedonaDB
 
     print("--- SedonaDB ---")
-    timings.append({"test": "SedonaDB", "elapsed_s": run_script("python/sedonadb/knn.py", uprn_table, codepoint_table)})
+    timings.append({"test": "SedonaDB", "elapsed_s": run_script("python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout)})
     check("python/sedonadb/result.csv", reference)
 
     # Append new timings to baselines.csv; skip None (failed) runs
