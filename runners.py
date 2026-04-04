@@ -2,10 +2,28 @@ import os
 import subprocess
 import time
 import re
+import uuid
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
+
+
+def _docker_compose_run(service, container_name, cmd_args, timeout=None):
+    """Run a one-shot docker compose service by name; kill it cleanly on timeout."""
+    cmd = [
+        "docker", "compose", "run", "--rm", "-T",
+        "--name", container_name,
+        service,
+    ] + cmd_args
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+        return proc.returncode, stdout, stderr
+    except subprocess.TimeoutExpired:
+        subprocess.run(["docker", "kill", container_name], capture_output=True)
+        proc.communicate()
+        return None, "", ""
 
 
 def run_script(
@@ -15,24 +33,19 @@ def run_script(
     timeout=None,
     statement_timeout_ms=None,
 ):
-    cmd = ["uv", "run", "--env-file", ".env", script_path]
+    args = ["uv", "run", script_path]
     if uprn_table:
-        cmd += ["--uprn-table", uprn_table]
+        args += ["--uprn-table", uprn_table]
     if codepoint_table:
-        cmd += ["--codepoint-table", codepoint_table]
+        args += ["--codepoint-table", codepoint_table]
     if statement_timeout_ms:
-        cmd += ["--statement-timeout", str(statement_timeout_ms)]
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-    )
-    try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.communicate()
+        args += ["--statement-timeout", str(statement_timeout_ms)]
+    name = f"knn_{uuid.uuid4().hex[:8]}"
+    returncode, stdout, stderr = _docker_compose_run("python", name, args, timeout=timeout)
+    if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
-    if proc.returncode != 0:
+    if returncode != 0:
         print(f"FAILED\n{stderr}")
         return None
     elapsed = pd.Timedelta(stdout.strip()).total_seconds()

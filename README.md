@@ -1,21 +1,22 @@
 # spatial_knn
 A compilation of solutions for the KNN (K-Nearest Neighbours) problem applied to spatial data.
 
-See the notebook for a speed comparison across methods.
+See `results.png` for a speed comparison across methods.
 
 ## Local Setup
 
-A PostgreSQL + PostGIS instance is provided via Docker for running the SQL-based tests locally.
+All Python scripts run inside a Docker container (`spatial_knn_python`) so that timeouts kill the entire process tree reliably, regardless of OS. PostgreSQL + PostGIS is also containerised.
 
-**Requirements:** Docker and Docker Compose.
+**Requirements:** Docker, Docker Compose, and [uv](https://github.com/astral-sh/uv) (for running `main.py` itself on the host).
 
 1. Copy the environment file and adjust credentials if needed:
    ```bash
    cp .env.example .env
    ```
-2. Start the database:
+2. Start all services and build the Python image:
    ```bash
    docker compose up -d
+   docker compose build python
    ```
 3. Load data into the database (**one-time setup** — data is stored in a named Docker volume and persists across restarts). Use whichever source you have available:
    - **From Parquet files** (preprocessed, no raw data needed):
@@ -41,16 +42,7 @@ All three are free to download from the [OS Data Hub](https://osdatahub.os.uk) (
 
 ## Running the benchmarks
 
-`main.py` is a Jupyter-style notebook (using `# %%` cell markers). Open it in VS Code and run cells individually, or execute it top to bottom to benchmark all implementations and generate `results.png`.
-
-It runs benchmarks for two datasets defined in the `SCENARIOS` list at the top of the file:
-
-| Dataset | UPRN table | Codepoint table |
-|---|---|---|
-| White Horse (small) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` |
-| Full GB (large) | `os.os_open_uprn` | `os.codepoint_polygons` |
-
-Both scenarios are run automatically in sequence when you run all cells top to bottom. `main.py` can also be run directly from the command line:
+`main.py` is the entry point. It imports all runner functions from `runners.py` and orchestrates the benchmark scenarios defined in `SCENARIOS`.
 
 ```bash
 # Run all scenarios
@@ -61,32 +53,41 @@ uv run --env-file .env main.py --scenario "White Horse (small)"
 uv run --env-file .env main.py --scenario "Full GB (large)"
 ```
 
-To run only one scenario in notebook mode, comment out the other entry in `SCENARIOS`.
+Each Python-based benchmark script runs inside the `spatial_knn_python` Docker container via `docker run --rm`. On timeout, `docker kill` is called — this guarantees immediate termination of the container and any in-flight work (including long-running GeoPandas or SQL operations).
 
-Individual scripts can also be run directly. Each accepts `--uprn-table` and `--codepoint-table` arguments (defaulting to the White Horse dataset if omitted):
+Two scenarios are defined:
 
-```bash
-# White Horse (default)
-uv run --env-file .env python/geopandas/knn.py
+| Dataset | UPRN table | Codepoint table | Timeout | Reference |
+|---|---|---|---|---|
+| White Horse (small) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` | none | SQL distinct |
+| Full GB (large) | `os.os_open_uprn` | `os.codepoint_polygons` | 30 min | Rust (strtree) |
 
-# Full GB
-uv run --env-file .env python/geopandas/knn.py \
-  --uprn-table os.os_open_uprn \
-  --codepoint-table os.codepoint_polygons
-```
+For the large dataset, Rust runs first to generate the reference output (SQL distinct would take >3 hours). All other methods are limited to 30 minutes; PostgreSQL queries also receive a matching `statement_timeout` so the server-side query is cancelled before the container timeout fires.
+
+## Code structure
+
+| File | Purpose |
+|---|---|
+| `main.py` | CLI entry point — parses args, runs scenarios, generates plot and README table |
+| `runners.py` | All runner functions (`run_script`, `run_kotlin`, `run_rust`, etc.), scenario definitions, `make_plot`, `update_readme` |
+| `python.Dockerfile` | Image used by all Python benchmark scripts |
+| `sedona.Dockerfile` | Image for Apache Sedona (Spark) scripts |
+| `prepare_data.py` | One-time data loading into PostGIS |
+| `docker-compose.yml` | postgres, python, sedona, kotlin, scala services on a shared `spatial_knn` network |
 
 ## When to use what
 
 - **SedonaDB** — data fits in memory, you want SQL semantics with Sedona's spatial functions without a server; Very fast, simple to use.
 - **Shapely / Geopandas** — data fits in memory, Python-only stack, geometries beyond points.
 - **DuckDB** — data fits in memory, you want SQL semantics without a server, or you are already working with Parquet files.
-- **Scikit-Learn** — data fits in memory, points only. Could be faster than Shapely when finding only one neighbour per point, but cannot break ties by postcode (or any secondary sort key), so results may differ from the other implementations in those edge cases. It is not as flexible as the other python solutions so it might be used in particular cases.
+- **Scikit-Learn** — data fits in memory, points only. Could be faster than Shapely when finding only one neighbour per point, but cannot break ties by postcode (or any secondary sort key), so results may differ from the other implementations in those edge cases.
 - **SQL (PostgreSQL + PostGIS)** — data does not fit in memory, or you need to join against other tables and write complex queries.
-- **C# (.NET / NetTopologySuite)** — already in the .NET ecosystem; API mirrors the JVM JTS library. Similar speed than the JVM solutions, easy to write and easier to run as it requires less settings.
+- **C# (.NET / NetTopologySuite)** — already in the .NET ecosystem; API mirrors the JVM JTS library. Similar speed to the JVM solutions, easier to run as it requires fewer settings.
 - **Scala / Kotlin (JVM)** — KNN is one part of a larger JVM application; slower than Go/Rust but with a larger library ecosystem.
-- **Go / Rust** — maximum single-machine speed; choose when the compiled language fits your stack. Rust edges out Go slightly. This require more coding knowledge.
+- **Go / Rust** — maximum single-machine speed; choose when the compiled language fits your stack. Rust edges out Go slightly.
 - **Apache Sedona / PySpark** — data is too large for a single machine and must be distributed across a cluster.
 - **Databricks, BigQuery / Redshift / Snowflake / Athena** *(paid managed services)* — data lives in a cloud warehouse and you want to avoid moving it. BigQuery is the fastest of the four here; Athena is slowest and roughly on par with local Postgres for data that fits Postgres.
+
 
 <!-- RESULTS_START -->
 ## Results

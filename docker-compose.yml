@@ -12,6 +12,24 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - knn
+
+  python:
+    build:
+      context: .
+      dockerfile: python.Dockerfile
+    image: spatial_knn_python
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    networks:
+      - knn
 
   sedona:
     build:
@@ -29,6 +47,8 @@ services:
     volumes:
       - .:/home/jovyan/work
     working_dir: /home/jovyan/work
+    networks:
+      - knn
 
   kotlin:
     image: maven:3-eclipse-temurin-21
@@ -42,6 +62,8 @@ services:
       - .:/workspace
       - maven_cache:/root/.m2
     working_dir: /workspace/kotlin
+    networks:
+      - knn
 
   scala:
     image: sbtscala/scala-sbt:eclipse-temurin-21.0.8_9_1.12.6_3.3.7
@@ -54,6 +76,12 @@ services:
       - .:/workspace
       - sbt_cache:/root/.cache
     working_dir: /workspace/scala
+    networks:
+      - knn
+
+networks:
+  knn:
+    name: spatial_knn
 
 volumes:
   postgres_data:
