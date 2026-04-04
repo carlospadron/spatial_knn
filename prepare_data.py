@@ -83,7 +83,8 @@ def load_uprn_parquet(parquet_path, target_table, index_name):
     with engine.begin() as conn:
         n = conn.execute(text("SELECT COUNT(*) FROM _uprn_stage")).scalar()
         _log(f"  {n:,} rows staged \u2014 building geometry\u2026")
-        conn.execute(text(f"""
+        conn.execute(
+            text(f"""
             WITH g AS (
                 SELECT uprn, easting, northing, lat, lon,
                        ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700) AS geom
@@ -93,8 +94,13 @@ def load_uprn_parquet(parquet_path, target_table, index_name):
             SELECT uprn, easting, northing, lat, lon, geom, ST_AsText(geom)
             FROM g
             ON CONFLICT (uprn) DO NOTHING
-        """))
-        conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom)"))
+        """)
+        )
+        conn.execute(
+            text(
+                f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom)"
+            )
+        )
         conn.execute(text("DROP TABLE _uprn_stage"))
     _log(f"  {target_table} loaded ({n:,} rows).")
 
@@ -111,7 +117,8 @@ def load_codepoint_parquet(parquet_path, target_table, index_name):
     with engine.begin() as conn:
         n = conn.execute(text("SELECT COUNT(*) FROM _cp_stage")).scalar()
         _log(f"  {n:,} rows staged \u2014 building geometry\u2026")
-        conn.execute(text(f"""
+        conn.execute(
+            text(f"""
             WITH g AS (
                 SELECT postcode,
                        ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700) AS geom
@@ -121,8 +128,13 @@ def load_codepoint_parquet(parquet_path, target_table, index_name):
             SELECT postcode, geom, ST_AsText(geom)
             FROM g
             ON CONFLICT (postcode) DO NOTHING
-        """))
-        conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom)"))
+        """)
+        )
+        conn.execute(
+            text(
+                f"CREATE INDEX IF NOT EXISTS {index_name} ON {target_table} USING gist(geom)"
+            )
+        )
         conn.execute(text("DROP TABLE _cp_stage"))
     _log(f"  {target_table} loaded ({n:,} rows).")
 
@@ -130,9 +142,15 @@ def load_codepoint_parquet(parquet_path, target_table, index_name):
 def load_all_parquet():
     create_tables()
     load_uprn_parquet(PARQUET_PATHS["uprn_full"], "os.os_open_uprn", "uprn_full_gis")
-    load_codepoint_parquet(PARQUET_PATHS["cp_full"], "os.codepoint_polygons", "cp_full_gis")
-    load_uprn_parquet(PARQUET_PATHS["uprn_wh"], "os.open_uprn_white_horse", "uprn_wh_gis")
-    load_codepoint_parquet(PARQUET_PATHS["cp_wh"], "os.code_point_open_white_horse", "cp_wh_gis")
+    load_codepoint_parquet(
+        PARQUET_PATHS["cp_full"], "os.codepoint_polygons", "cp_full_gis"
+    )
+    load_uprn_parquet(
+        PARQUET_PATHS["uprn_wh"], "os.open_uprn_white_horse", "uprn_wh_gis"
+    )
+    load_codepoint_parquet(
+        PARQUET_PATHS["cp_wh"], "os.code_point_open_white_horse", "cp_wh_gis"
+    )
     _log("All tables loaded from Parquet.")
 
 
@@ -231,12 +249,12 @@ def from_raw():
 
     # ---- CSV exports for cloud services ----
     _log("Writing CSV exports for cloud services…")
-    pd.read_sql("SELECT *, ST_AsText(geom) wkt FROM os.open_uprn_white_horse", engine).to_csv(
-        "data/open_uprn_white_horse.csv", index=False, header=False, sep="|"
-    )
-    pd.read_sql("SELECT *, ST_AsText(geom) wkt FROM os.code_point_open_white_horse", engine).to_csv(
-        "data/code_point_open_white_horse.csv", index=False, header=False, sep="|"
-    )
+    pd.read_sql(
+        "SELECT *, ST_AsText(geom) wkt FROM os.open_uprn_white_horse", engine
+    ).to_csv("data/open_uprn_white_horse.csv", index=False, header=False, sep="|")
+    pd.read_sql(
+        "SELECT *, ST_AsText(geom) wkt FROM os.code_point_open_white_horse", engine
+    ).to_csv("data/code_point_open_white_horse.csv", index=False, header=False, sep="|")
     _log("Done.")
 
 

@@ -8,6 +8,12 @@ from sqlalchemy import create_engine
 parser = argparse.ArgumentParser()
 parser.add_argument("--uprn-table", default="os.open_uprn_white_horse")
 parser.add_argument("--codepoint-table", default="os.code_point_open_white_horse")
+parser.add_argument(
+    "--statement-timeout",
+    type=int,
+    default=0,
+    help="PostgreSQL statement_timeout in milliseconds (0 = no limit)",
+)
 args = parser.parse_args()
 
 user = os.getenv("DB_USER")
@@ -23,6 +29,8 @@ t1 = pd.Timestamp.now()
 
 conn = engine.raw_connection()
 cursor = conn.cursor()
+if args.statement_timeout:
+    cursor.execute("SET statement_timeout = %s", (args.statement_timeout,))
 cursor.execute(f"""
     DROP TABLE IF EXISTS os.knn;
     WITH knn AS (

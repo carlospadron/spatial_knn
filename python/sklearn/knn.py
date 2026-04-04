@@ -21,9 +21,7 @@ uprn_table = args.uprn_table
 codepoint_table = args.codepoint_table
 engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
 
-uprn = gpd.read_postgis(
-    f"SELECT uprn, geom FROM {uprn_table}", engine, geom_col="geom"
-)
+uprn = gpd.read_postgis(f"SELECT uprn, geom FROM {uprn_table}", engine, geom_col="geom")
 codepoint = gpd.read_postgis(
     f"SELECT postcode, geom FROM {codepoint_table} ORDER BY postcode",
     engine,
