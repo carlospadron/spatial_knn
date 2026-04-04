@@ -299,155 +299,131 @@ def run_scenario(scenario):
         reference = pd.read_csv("sql/sql_distinct/result.csv")
 
     print("--- SQL lateral ---")
-    timings.append(
-        {
-            "test": "SQL lateral",
-            "elapsed_s": run_script(
-                "sql/sql_lateral/knn.py",
-                uprn_table,
-                codepoint_table,
-                timeout=timeout,
-                statement_timeout_ms=sql_timeout_ms,
-            ),
-        }
+    elapsed = run_script(
+        "sql/sql_lateral/knn.py",
+        uprn_table,
+        codepoint_table,
+        timeout=timeout,
+        statement_timeout_ms=sql_timeout_ms,
     )
-    check("sql/sql_lateral/result.csv", reference)
+    timings.append({"test": "SQL lateral", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("sql/sql_lateral/result.csv", reference)
 
     print("--- GeoPandas sjoin_nearest ---")
-    timings.append(
-        {
-            "test": "Geopandas sjoin_nearest",
-            "elapsed_s": run_script(
-                "python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout
-            ),
-        }
-    )
-    check("python/geopandas/result.csv", reference)
+    elapsed = run_script("python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout)
+    timings.append({"test": "Geopandas sjoin_nearest", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/geopandas/result.csv", reference)
 
     print("--- Shapely all vs all ---")
-    timings.append(
-        {
-            "test": "Shapely all vs all",
-            "elapsed_s": run_script(
-                "python/shapely_all_vs_all/knn.py",
-                uprn_table,
-                codepoint_table,
-                timeout=timeout,
-            ),
-        }
+    elapsed = run_script(
+        "python/shapely_all_vs_all/knn.py",
+        uprn_table,
+        codepoint_table,
+        timeout=timeout,
     )
-    check("python/shapely_all_vs_all/result.csv", reference)
+    timings.append({"test": "Shapely all vs all", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/shapely_all_vs_all/result.csv", reference)
 
     print("--- Shapely strtree ---")
-    timings.append(
-        {
-            "test": "Shapely strtree",
-            "elapsed_s": run_script(
-                "python/shapely_strtree/knn.py",
-                uprn_table,
-                codepoint_table,
-                timeout=timeout,
-            ),
-        }
+    elapsed = run_script(
+        "python/shapely_strtree/knn.py",
+        uprn_table,
+        codepoint_table,
+        timeout=timeout,
     )
-    check("python/shapely_strtree/result.csv", reference)
+    timings.append({"test": "Shapely strtree", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/shapely_strtree/result.csv", reference)
 
     print("--- Scikit-Learn ---")
-    timings.append(
-        {
-            "test": "Scikit-Learn nearest neighbour",
-            "elapsed_s": run_script(
-                "python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout
-            ),
-        }
-    )
-    check("python/sklearn/result.csv", reference)
+    elapsed = run_script("python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout)
+    timings.append({"test": "Scikit-Learn nearest neighbour", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/sklearn/result.csv", reference)
 
     print("--- Apache Sedona partial sql ---")
-    timings.append(
-        {
-            "test": "Apache Sedona partial sql",
-            "elapsed_s": run_script_docker(
-                "python/sedona_partial/knn.py",
-                uprn_table,
-                codepoint_table,
-                timeout=timeout,
-            ),
-        }
+    elapsed = run_script_docker(
+        "python/sedona_partial/knn.py",
+        uprn_table,
+        codepoint_table,
+        timeout=timeout,
     )
-    check("python/sedona_partial/result.csv", reference)
+    timings.append({"test": "Apache Sedona partial sql", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/sedona_partial/result.csv", reference)
 
     print("--- Apache Sedona pure sql ---")
-    timings.append(
-        {
-            "test": "Apache Sedona pure sql",
-            "elapsed_s": run_script_docker(
-                "python/sedona_pure/knn.py",
-                uprn_table,
-                codepoint_table,
-                timeout=timeout,
-            ),
-        }
+    elapsed = run_script_docker(
+        "python/sedona_pure/knn.py",
+        uprn_table,
+        codepoint_table,
+        timeout=timeout,
     )
-    check("python/sedona_pure/result.csv", reference)
+    timings.append({"test": "Apache Sedona pure sql", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/sedona_pure/result.csv", reference)
 
     print("--- Apache Sedona st_knn ---")
-    timings.append(
-        {
-            "test": "Apache Sedona st_knn",
-            "elapsed_s": run_script_docker(
-                "python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout
-            ),
-        }
+    elapsed = run_script_docker(
+        "python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout
     )
-    check("python/sedona_knn/result.csv", reference)
+    timings.append({"test": "Apache Sedona st_knn", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/sedona_knn/result.csv", reference)
 
     print("--- Kotlin ---")
-    timings.append({"test": "Kotlin", "elapsed_s": run_kotlin(timeout=timeout)})
-    check("kotlin/kotlin_all_vs_all.csv", reference)
-    check("kotlin/kotlin_tree.csv", reference)
+    elapsed = run_kotlin(timeout=timeout)
+    timings.append({"test": "Kotlin", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("kotlin/kotlin_all_vs_all.csv", reference)
+        check("kotlin/kotlin_tree.csv", reference)
 
     print("--- Scala ---")
-    timings.append({"test": "Scala", "elapsed_s": run_scala(timeout=timeout)})
-    check("scala/scala_all_vs_all.csv", reference)
-    check("scala/scala_tree.csv", reference)
+    elapsed = run_scala(timeout=timeout)
+    timings.append({"test": "Scala", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("scala/scala_all_vs_all.csv", reference)
+        check("scala/scala_tree.csv", reference)
 
     if not reference_csv:
         print("--- Rust ---")
-        timings.append({"test": "Rust", "elapsed_s": run_rust(timeout=timeout)})
-    check("rust/rust_all_vs_all.csv", reference)
-    check("rust/rust_tree.csv", reference)
+        elapsed = run_rust(timeout=timeout)
+        timings.append({"test": "Rust", "elapsed_s": elapsed})
+        if elapsed is not None:
+            check("rust/rust_all_vs_all.csv", reference)
+            check("rust/rust_tree.csv", reference)
+    else:
+        check("rust/rust_all_vs_all.csv", reference)
+        check("rust/rust_tree.csv", reference)
 
     print("--- C# ---")
-    timings.append({"test": "C#", "elapsed_s": run_csharp(timeout=timeout)})
-    check("csharp_all_vs_all.csv", reference)
-    check("csharp_tree.csv", reference)
+    elapsed = run_csharp(timeout=timeout)
+    timings.append({"test": "C#", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("csharp_all_vs_all.csv", reference)
+        check("csharp_tree.csv", reference)
 
     print("--- Go ---")
-    timings.append({"test": "Go", "elapsed_s": run_go(timeout=timeout)})
-    check("go/go_all_vs_all.csv", reference)
-    check("go/go_tree.csv", reference)
+    elapsed = run_go(timeout=timeout)
+    timings.append({"test": "Go", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("go/go_all_vs_all.csv", reference)
+        check("go/go_tree.csv", reference)
 
     print("--- DuckDB ---")
-    timings.append(
-        {
-            "test": "DuckDB",
-            "elapsed_s": run_script(
-                "python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout
-            ),
-        }
-    )
-    check("python/duckdb/result.csv", reference)
+    elapsed = run_script("python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout)
+    timings.append({"test": "DuckDB", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/duckdb/result.csv", reference)
 
     print("--- SedonaDB ---")
-    timings.append(
-        {
-            "test": "SedonaDB",
-            "elapsed_s": run_script(
-                "python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout
-            ),
-        }
-    )
+    elapsed = run_script("python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout)
+    timings.append({"test": "SedonaDB", "elapsed_s": elapsed})
+    if elapsed is not None:
+        check("python/sedonadb/result.csv", reference)
     check("python/sedonadb/result.csv", reference)
 
     new_rows = pd.DataFrame(
