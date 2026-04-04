@@ -13,10 +13,10 @@ All Python scripts run inside a Docker container (`spatial_knn_python`) so that 
    ```bash
    cp .env.example .env
    ```
-2. Start all services and build the Python image:
+2. Start the database and pre-build the benchmark images:
    ```bash
-   docker compose up -d
-   docker compose build python
+   docker compose up -d postgres
+   docker compose build python sedona
    ```
 3. Load data into the database (**one-time setup** — data is stored in a named Docker volume and persists across restarts). Use whichever source you have available:
    - **From Parquet files** (preprocessed, no raw data needed):

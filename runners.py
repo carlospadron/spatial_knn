@@ -54,45 +54,28 @@ def run_script(
     return elapsed
 
 
-def _is_container_running(service):
-    """Return True if the given docker-compose service has a running container."""
-    result = subprocess.run(
-        ["docker", "compose", "ps", "--status", "running", "-q", service],
-        capture_output=True,
-        text=True,
-    )
-    return bool(result.stdout.strip())
-
-
 def run_script_docker(script_path, uprn_table=None, codepoint_table=None, timeout=None):
-    """Run a Python script inside the sedona Docker container (Spark + Sedona pre-installed)."""
-    if not _is_container_running("sedona"):
-        print("FAILED (sedona container is not running)")
-        return None
+    """Run a Python script inside a one-shot sedona Docker container (Spark + Sedona pre-installed)."""
     extra_args = []
     if uprn_table:
         extra_args += ["--uprn-table", uprn_table]
     if codepoint_table:
         extra_args += ["--codepoint-table", codepoint_table]
+    name = f"knn_sedona_{uuid.uuid4().hex[:8]}"
     start = time.time()
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "exec", "-T", "sedona", "python3", script_path]
-            + extra_args,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
+    returncode, stdout, stderr = _docker_compose_run(
+        "sedona", name, ["python3", script_path] + extra_args, timeout=timeout
+    )
+    if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
     elapsed = time.time() - start
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.stderr.strip():
-        print(result.stderr.strip())
-    if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})")
+    if stdout.strip():
+        print(stdout.strip())
+    if stderr.strip():
+        print(stderr.strip())
+    if returncode != 0:
+        print(f"FAILED (exit code {returncode})")
         return None
     return elapsed
 
