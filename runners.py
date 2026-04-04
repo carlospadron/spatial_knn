@@ -22,6 +22,7 @@ def _docker_compose_run(service, container_name, cmd_args, timeout=None):
         return proc.returncode, stdout, stderr
     except subprocess.TimeoutExpired:
         subprocess.run(["docker", "kill", container_name], capture_output=True)
+        proc.kill()
         proc.communicate()
         return None, "", ""
 
