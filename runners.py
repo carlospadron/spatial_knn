@@ -1,7 +1,6 @@
 import os
 import subprocess
 import time
-import re
 import uuid
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -81,21 +80,10 @@ def run_script_docker(script_path, uprn_table=None, codepoint_table=None, timeou
 
 
 def run_kotlin(timeout=None):
-    """Run the Kotlin Maven project inside the kotlin Docker container."""
-    start = time.time()
+    """Run the Kotlin KNN implementation inside Docker and return a dict of test name to elapsed seconds."""
     try:
         result = subprocess.run(
-            [
-                "docker",
-                "compose",
-                "run",
-                "--rm",
-                "-T",
-                "kotlin",
-                "mvn",
-                "compile",
-                "exec:java",
-            ],
+            ["docker", "compose", "run", "--rm", "-T", "kotlin", "mvn", "compile", "exec:java"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -103,21 +91,14 @@ def run_kotlin(timeout=None):
     except subprocess.TimeoutExpired:
         print(f"TIMEOUT after {timeout}s")
         return None
-    elapsed = time.time() - start
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.stderr.strip():
-        print(result.stderr.strip())
     if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})")
+        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
         return None
-    print(f"Elapsed: {elapsed:.1f}s")
-    return elapsed
+    return pd.read_csv("kotlin/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_scala(timeout=None):
-    """Run the Scala sbt project inside the scala Docker container."""
-    start = time.time()
+    """Run the Scala sbt project inside Docker and return a dict of test name to elapsed seconds."""
     try:
         result = subprocess.run(
             ["docker", "compose", "run", "--rm", "-T", "scala", "sbt", "run"],
@@ -128,20 +109,14 @@ def run_scala(timeout=None):
     except subprocess.TimeoutExpired:
         print(f"TIMEOUT after {timeout}s")
         return None
-    elapsed = time.time() - start
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.stderr.strip():
-        print(result.stderr.strip())
     if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})")
+        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
         return None
-    print(f"Elapsed: {elapsed:.1f}s")
-    return elapsed
+    return pd.read_csv("scala/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_rust(timeout=None):
-    """Run the Rust project locally using cargo."""
+    """Run the Rust project locally using cargo and return a dict of test name to elapsed seconds."""
     env_vars = {}
     with open(".env") as f:
         for line in f:
@@ -150,7 +125,6 @@ def run_rust(timeout=None):
                 key, _, val = line.partition("=")
                 env_vars[key.strip()] = val.strip()
     env = {**os.environ, **env_vars}
-    start = time.time()
     try:
         result = subprocess.run(
             ["cargo", "run", "--release"],
@@ -163,21 +137,15 @@ def run_rust(timeout=None):
     except subprocess.TimeoutExpired:
         print(f"TIMEOUT after {timeout}s")
         return None
-    elapsed = time.time() - start
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.stderr.strip():
-        print(result.stderr.strip())
     if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})")
+        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
         return None
-    print(f"Elapsed: {elapsed:.1f}s")
-    return elapsed
+    return pd.read_csv("rust/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_csharp(timeout=None):
-    """Run the C# project locally using dotnet."""
-    start = time.time()
+    """Run the C# project locally using dotnet and return a dict of test name to elapsed seconds."""
+    
     try:
         result = subprocess.run(
             ["dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
@@ -188,21 +156,14 @@ def run_csharp(timeout=None):
     except subprocess.TimeoutExpired:
         print(f"TIMEOUT after {timeout}s")
         return None
-    elapsed = time.time() - start
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.stderr.strip():
-        print(result.stderr.strip())
     if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})")
+        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
         return None
-    print(f"Elapsed: {elapsed:.1f}s")
-    return elapsed
+    return pd.read_csv("csharp/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_go(timeout=None):
-    """Run the Go project locally."""
-    env_vars = {}
+    """Run the Go project locally and return a dict of test name to elapsed seconds."""
     with open(".env") as f:
         for line in f:
             line = line.strip()
@@ -210,7 +171,6 @@ def run_go(timeout=None):
                 key, _, val = line.partition("=")
                 env_vars[key.strip()] = val.strip()
     env = {**os.environ, **env_vars}
-    start = time.time()
     try:
         result = subprocess.run(
             ["go", "run", "."],
@@ -223,16 +183,19 @@ def run_go(timeout=None):
     except subprocess.TimeoutExpired:
         print(f"TIMEOUT after {timeout}s")
         return None
-    elapsed = time.time() - start
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.stderr.strip():
-        print(result.stderr.strip())
     if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})")
+        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
         return None
-    print(f"Elapsed: {elapsed:.1f}s")
-    return elapsed
+    return pd.read_csv("go/timings.csv").set_index("test")["elapsed_s"].to_dict()
+
+
+def record_timing(dataset, test, elapsed_s):
+    """Append one timing row to baselines.csv and print it."""
+    print(f"  {test}: {elapsed_s:.3f}s")
+    header = not os.path.exists("baselines.csv")
+    pd.DataFrame([{"dataset": dataset, "test": test, "elapsed_s": elapsed_s}]).to_csv(
+        "baselines.csv", mode="a", index=False, header=header
+    )
 
 
 def check(result_csv, ref):
@@ -243,7 +206,7 @@ def check(result_csv, ref):
         print("✓ Results match reference")
     else:
         print(f"✗ {len(mismatches)} mismatches found in {result_csv}")
-        print(mismatches.to_string())
+        print(mismatches.head(10).to_string())
     return mismatches
 
 
@@ -260,7 +223,7 @@ SCENARIOS = [
         "codepoint_table": "os.codepoint_polygons",
         "plot_file": "results_full_gb.png",
         "reference_csv": "rust/rust_tree.csv",
-        "timeout": 360,
+        "timeout": 1800,
     },
 ]
 
@@ -274,7 +237,7 @@ def run_scenario(scenario):
     print(f"  Codepoint table: {codepoint_table}")
     print(f"{'=' * 60}\n")
 
-    timings = []
+    dataset = scenario["name"]
     timeout = scenario.get("timeout")
     reference_csv = scenario.get("reference_csv")
     # Pass statement_timeout slightly under the wall-clock timeout so Postgres
@@ -283,22 +246,22 @@ def run_scenario(scenario):
 
     if reference_csv:
         print("--- Rust (generating reference) ---")
-        timings.append({"test": "Rust", "elapsed_s": run_rust(timeout=timeout)})
+        results = run_rust(timeout=timeout)
+        if results:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
         reference = pd.read_csv(reference_csv)
     else:
         print("--- SQL distinct ---")
-        timings.append(
-            {
-                "test": "SQL distinct",
-                "elapsed_s": run_script(
-                    "sql/sql_distinct/knn.py",
-                    uprn_table,
-                    codepoint_table,
-                    timeout=timeout,
-                    statement_timeout_ms=sql_timeout_ms,
-                ),
-            }
+        elapsed = run_script(
+            "sql/sql_distinct/knn.py",
+            uprn_table,
+            codepoint_table,
+            timeout=timeout,
+            statement_timeout_ms=sql_timeout_ms,
         )
+        if elapsed is not None:
+            record_timing(dataset, "SQL distinct", elapsed)
         reference = pd.read_csv("sql/sql_distinct/result.csv")
 
     print("--- SQL lateral ---")
@@ -309,14 +272,14 @@ def run_scenario(scenario):
         timeout=timeout,
         statement_timeout_ms=sql_timeout_ms,
     )
-    timings.append({"test": "SQL lateral", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "SQL lateral", elapsed)
         check("sql/sql_lateral/result.csv", reference)
 
     print("--- GeoPandas sjoin_nearest ---")
     elapsed = run_script("python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    timings.append({"test": "Geopandas sjoin_nearest", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "Geopandas sjoin_nearest", elapsed)
         check("python/geopandas/result.csv", reference)
 
     print("--- Shapely all vs all ---")
@@ -326,8 +289,8 @@ def run_scenario(scenario):
         codepoint_table,
         timeout=timeout,
     )
-    timings.append({"test": "Shapely all vs all", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "Shapely all vs all", elapsed)
         check("python/shapely_all_vs_all/result.csv", reference)
 
     print("--- Shapely strtree ---")
@@ -337,14 +300,14 @@ def run_scenario(scenario):
         codepoint_table,
         timeout=timeout,
     )
-    timings.append({"test": "Shapely strtree", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "Shapely strtree", elapsed)
         check("python/shapely_strtree/result.csv", reference)
 
     print("--- Scikit-Learn ---")
     elapsed = run_script("python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    timings.append({"test": "Scikit-Learn nearest neighbour", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "Scikit-Learn nearest neighbour", elapsed)
         check("python/sklearn/result.csv", reference)
 
     print("--- Apache Sedona partial sql ---")
@@ -354,8 +317,8 @@ def run_scenario(scenario):
         codepoint_table,
         timeout=timeout,
     )
-    timings.append({"test": "Apache Sedona partial sql", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "Apache Sedona partial sql", elapsed)
         check("python/sedona_partial/result.csv", reference)
 
     print("--- Apache Sedona pure sql ---")
@@ -365,37 +328,40 @@ def run_scenario(scenario):
         codepoint_table,
         timeout=timeout,
     )
-    timings.append({"test": "Apache Sedona pure sql", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "Apache Sedona pure sql", elapsed)
         check("python/sedona_pure/result.csv", reference)
 
     print("--- Apache Sedona st_knn ---")
     elapsed = run_script_docker(
         "python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout
     )
-    timings.append({"test": "Apache Sedona st_knn", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "Apache Sedona st_knn", elapsed)
         check("python/sedona_knn/result.csv", reference)
 
     print("--- Kotlin ---")
-    elapsed = run_kotlin(timeout=timeout)
-    timings.append({"test": "Kotlin", "elapsed_s": elapsed})
-    if elapsed is not None:
+    results = run_kotlin(timeout=timeout)
+    if results is not None:
+        for k, v in results.items():
+            record_timing(dataset, k, v)
         check("kotlin/kotlin_all_vs_all.csv", reference)
         check("kotlin/kotlin_tree.csv", reference)
 
     print("--- Scala ---")
-    elapsed = run_scala(timeout=timeout)
-    timings.append({"test": "Scala", "elapsed_s": elapsed})
-    if elapsed is not None:
+    results = run_scala(timeout=timeout)
+    if results is not None:
+        for k, v in results.items():
+            record_timing(dataset, k, v)
         check("scala/scala_all_vs_all.csv", reference)
         check("scala/scala_tree.csv", reference)
 
     if not reference_csv:
         print("--- Rust ---")
-        elapsed = run_rust(timeout=timeout)
-        timings.append({"test": "Rust", "elapsed_s": elapsed})
-        if elapsed is not None:
+        results = run_rust(timeout=timeout)
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
             check("rust/rust_all_vs_all.csv", reference)
             check("rust/rust_tree.csv", reference)
     else:
@@ -403,47 +369,32 @@ def run_scenario(scenario):
         check("rust/rust_tree.csv", reference)
 
     print("--- C# ---")
-    elapsed = run_csharp(timeout=timeout)
-    timings.append({"test": "C#", "elapsed_s": elapsed})
-    if elapsed is not None:
+    results = run_csharp(timeout=timeout)
+    if results is not None:
+        for k, v in results.items():
+            record_timing(dataset, k, v)
         check("csharp_all_vs_all.csv", reference)
         check("csharp_tree.csv", reference)
 
     print("--- Go ---")
-    elapsed = run_go(timeout=timeout)
-    timings.append({"test": "Go", "elapsed_s": elapsed})
-    if elapsed is not None:
+    results = run_go(timeout=timeout)
+    if results is not None:
+        for k, v in results.items():
+            record_timing(dataset, k, v)
         check("go/go_all_vs_all.csv", reference)
         check("go/go_tree.csv", reference)
 
     print("--- DuckDB ---")
     elapsed = run_script("python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    timings.append({"test": "DuckDB", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "DuckDB", elapsed)
         check("python/duckdb/result.csv", reference)
 
     print("--- SedonaDB ---")
     elapsed = run_script("python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    timings.append({"test": "SedonaDB", "elapsed_s": elapsed})
     if elapsed is not None:
+        record_timing(dataset, "SedonaDB", elapsed)
         check("python/sedonadb/result.csv", reference)
-    check("python/sedonadb/result.csv", reference)
-
-    new_rows = pd.DataFrame(
-        [
-            {
-                "dataset": scenario["name"],
-                "test": t["test"],
-                "elapsed_s": t["elapsed_s"],
-            }
-            for t in timings
-            if t["elapsed_s"] is not None
-        ]
-    )
-    if not new_rows.empty:
-        header = not os.path.exists("baselines.csv")
-        new_rows.to_csv("baselines.csv", mode="a", index=False, header=header)
-        print(f"\nAppended {len(new_rows)} timings to baselines.csv")
 
     return reference
 

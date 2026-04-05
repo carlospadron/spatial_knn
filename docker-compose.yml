@@ -30,6 +30,7 @@ services:
     working_dir: /workspace
     networks:
       - knn
+    mem_limit: 24g
 
   sedona:
     build:
@@ -49,6 +50,7 @@ services:
     working_dir: /home/jovyan/work
     networks:
       - knn
+    mem_limit: 24g
 
   kotlin:
     image: maven:3-eclipse-temurin-21
@@ -64,6 +66,7 @@ services:
     working_dir: /workspace/kotlin
     networks:
       - knn
+    mem_limit: 24g
 
   scala:
     image: sbtscala/scala-sbt:eclipse-temurin-21.0.8_9_1.12.6_3.3.7
@@ -78,6 +81,7 @@ services:
     working_dir: /workspace/scala
     networks:
       - knn
+    mem_limit: 24g
 
 networks:
   knn:

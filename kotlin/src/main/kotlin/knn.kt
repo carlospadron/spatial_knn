@@ -95,11 +95,18 @@ fun main() {
     val out1 = nearestNeighbour(uprn, codepoint)
     val endTime = System.currentTimeMillis()
     saveCsv(out1, "kotlin_all_vs_all.csv")
-    println("all vs all: ${endTime - startTime}ms")
 
     val startTime2 = System.currentTimeMillis()
     val out2 = nearestNeighbour2(uprn, codepoint)
     val endTime2 = System.currentTimeMillis()
     saveCsv(out2, "kotlin_tree.csv")
-    println("strtree: ${endTime2 - startTime2}ms")
+
+    val timings = File("timings.csv").bufferedWriter()
+    timings.write("test,elapsed_s")
+    timings.newLine()
+    timings.write("Kotlin all vs all,${(endTime - startTime) / 1000.0}")
+    timings.newLine()
+    timings.write("Kotlin strtree,${(endTime2 - startTime2) / 1000.0}")
+    timings.newLine()
+    timings.flush()
 }

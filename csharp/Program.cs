@@ -23,13 +23,20 @@ var sw = Stopwatch.StartNew();
 var out1 = NearestNeighbour(uprn, codepoint); // ~22sec
 sw.Stop();
 SaveCsv(out1, "csharp_all_vs_all.csv");
-Console.WriteLine(sw.Elapsed);
+var elapsed1 = sw.Elapsed.TotalSeconds;
 
 sw.Restart();
 var out2 = NearestNeighbour2(uprn, codepoint); // ~3.6sec
 sw.Stop();
 SaveCsv(out2, "csharp_tree.csv");
-Console.WriteLine(sw.Elapsed);
+var elapsed2 = sw.Elapsed.TotalSeconds;
+
+File.WriteAllLines("csharp/timings.csv", new[]
+{
+    "test,elapsed_s",
+    $"C# all vs all,{elapsed1}",
+    $"C# strtree,{elapsed2}"
+});
 
 static Dictionary<string, (string, double)> NearestNeighbour(
     Dictionary<string, Geometry> geomA,

@@ -162,11 +162,20 @@ func main() {
 
 	t1 := time.Now()
 	out1 := allVsAll(uprn, codepoint)
-	fmt.Println(time.Since(t1))
+	d1 := time.Since(t1)
 	saveCsv(out1, "go_all_vs_all.csv")
 
 	t2 := time.Now()
 	out2 := strtreeKNN(uprn, codepoint)
-	fmt.Println(time.Since(t2))
+	d2 := time.Since(t2)
 	saveCsv(out2, "go_tree.csv")
+
+	tf, err := os.Create("timings.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer tf.Close()
+	fmt.Fprintln(tf, "test,elapsed_s")
+	fmt.Fprintf(tf, "Go all vs all,%f\n", d1.Seconds())
+	fmt.Fprintf(tf, "Go strtree,%f\n", d2.Seconds())
 }

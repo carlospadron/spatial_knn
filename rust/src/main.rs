@@ -98,13 +98,17 @@ fn main() {
 
     let start = Instant::now();
     let output = nearest_neighbour(&uprn, &codepoint);
-    let duration = start.elapsed();
+    let duration1 = start.elapsed();
     write_csv(output, "rust_all_vs_all.csv".to_owned()).unwrap();
-    println!("Time elapsed is: {:?}", duration);
 
     let start = Instant::now();
     let output = nearest_neighbour2(&uprn, &codepoint);
-    let duration = start.elapsed();
+    let duration2 = start.elapsed();
     write_csv(output, "rust_tree.csv".to_owned()).unwrap();
-    println!("Time elapsed is: {:?}", duration);
+
+    let mut wtr = Writer::from_path("timings.csv").unwrap();
+    wtr.write_record(&["test", "elapsed_s"]).unwrap();
+    wtr.write_record(&["Rust all vs all", &duration1.as_secs_f64().to_string()]).unwrap();
+    wtr.write_record(&["Rust strtree", &duration2.as_secs_f64().to_string()]).unwrap();
+    wtr.flush().unwrap();
 }
