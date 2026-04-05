@@ -1,4 +1,5 @@
 import argparse
+import os
 import pandas as pd
 
 from runners import SCENARIOS, check, make_plot, run_scenario, update_readme
@@ -25,20 +26,27 @@ def main():
 
     # Cloud service checks (use White Horse reference for validation)
     reference = scenario_references.get("White Horse (small)", pd.DataFrame())
-    check("big_query_result.csv", reference)
-    check("redshift_result.csv", reference)
-    check("athena_results.csv", reference)
+    for cloud_csv in ("big_query_result.csv", "redshift_result.csv", "athena_results.csv"):
+        if os.path.exists(cloud_csv):
+            check(cloud_csv, reference)
+        else:
+            print(f"SKIPPED (file not found): {cloud_csv}")
 
-    knn = pd.read_csv("snowflake_result.csv").rename(columns=lambda x: x.lower())
-    merged = pd.merge(reference, knn, how="outer", on="origin")
-    print(merged[merged["destination_x"] != merged["destination_y"]])
+    if os.path.exists("snowflake_result.csv"):
+        knn = pd.read_csv("snowflake_result.csv").rename(columns=lambda x: x.lower())
+        merged = pd.merge(reference, knn, how="outer", on="origin")
+        print(merged[merged["destination_x"] != merged["destination_y"]])
+    else:
+        print("SKIPPED (file not found): snowflake_result.csv")
 
     # update filename to match the actual Databricks output CSV
-    knn = pd.read_csv(
-        "part-00000-tid-83222403381116274-4d1c858d-cce3-41a1-a392-7cb7afb59909-633-1-c000.csv"
-    )
-    merged = pd.merge(reference, knn, how="outer", on="origin")
-    print(merged[merged["destination_x"] != merged["destination_y"]])
+    databricks_csv = "part-00000-tid-83222403381116274-4d1c858d-cce3-41a1-a392-7cb7afb59909-633-1-c000.csv"
+    if os.path.exists(databricks_csv):
+        knn = pd.read_csv(databricks_csv)
+        merged = pd.merge(reference, knn, how="outer", on="origin")
+        print(merged[merged["destination_x"] != merged["destination_y"]])
+    else:
+        print(f"SKIPPED (file not found): {databricks_csv}")
 
     # Load baselines and keep the best (minimum) elapsed_s per (dataset, test)
     baselines = (

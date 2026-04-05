@@ -241,6 +241,9 @@ def check(result_csv, ref):
     mismatches = merged[merged["destination_x"] != merged["destination_y"]]
     if len(mismatches) == 0:
         print("✓ Results match reference")
+    else:
+        print(f"✗ {len(mismatches)} mismatches found in {result_csv}")
+        print(mismatches.to_string())
     return mismatches
 
 
