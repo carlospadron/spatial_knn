@@ -83,6 +83,51 @@ services:
       - knn
     mem_limit: 24g
 
+  rust:
+    image: rust:1-slim
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - cargo_cache:/usr/local/cargo/registry
+    working_dir: /workspace/rust
+    networks:
+      - knn
+    mem_limit: 24g
+
+  csharp:
+    image: mcr.microsoft.com/dotnet/sdk:9.0
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - nuget_cache:/root/.nuget
+    working_dir: /workspace
+    networks:
+      - knn
+    mem_limit: 24g
+
+  go:
+    image: golang:1.22
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    volumes:
+      - .:/workspace
+      - go_cache:/root/go/pkg/mod
+    working_dir: /workspace/go
+    networks:
+      - knn
+    mem_limit: 24g
+
 networks:
   knn:
     name: spatial_knn
@@ -91,3 +136,6 @@ volumes:
   postgres_data:
   maven_cache:
   sbt_cache:
+  cargo_cache:
+  nuget_cache:
+  go_cache:

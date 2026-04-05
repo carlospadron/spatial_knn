@@ -116,22 +116,12 @@ def run_scala(timeout=None):
 
 
 def run_rust(timeout=None):
-    """Run the Rust project locally using cargo and return a dict of test name to elapsed seconds."""
-    env_vars = {}
-    with open(".env") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, _, val = line.partition("=")
-                env_vars[key.strip()] = val.strip()
-    env = {**os.environ, **env_vars}
+    """Run the Rust project inside Docker and return a dict of test name to elapsed seconds."""
     try:
         result = subprocess.run(
-            ["cargo", "run", "--release"],
+            ["docker", "compose", "run", "--rm", "-T", "rust", "cargo", "run", "--release"],
             capture_output=True,
             text=True,
-            env=env,
-            cwd="rust",
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
@@ -144,11 +134,11 @@ def run_rust(timeout=None):
 
 
 def run_csharp(timeout=None):
-    """Run the C# project locally using dotnet and return a dict of test name to elapsed seconds."""
-    
+    """Run the C# project inside Docker and return a dict of test name to elapsed seconds."""
     try:
         result = subprocess.run(
-            ["dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
+            ["docker", "compose", "run", "--rm", "-T", "csharp",
+             "dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -163,21 +153,12 @@ def run_csharp(timeout=None):
 
 
 def run_go(timeout=None):
-    """Run the Go project locally and return a dict of test name to elapsed seconds."""
-    with open(".env") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, _, val = line.partition("=")
-                env_vars[key.strip()] = val.strip()
-    env = {**os.environ, **env_vars}
+    """Run the Go project inside Docker and return a dict of test name to elapsed seconds."""
     try:
         result = subprocess.run(
-            ["go", "run", "."],
+            ["docker", "compose", "run", "--rm", "-T", "go", "go", "run", "."],
             capture_output=True,
             text=True,
-            env=env,
-            cwd="go",
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
@@ -228,7 +209,14 @@ SCENARIOS = [
 ]
 
 
-def run_scenario(scenario):
+SOLUTION_NAMES = [
+    "sql_distinct", "sql_lateral", "geopandas", "shapely_all_vs_all", "shapely_strtree",
+    "sklearn", "sedona_partial", "sedona_pure", "sedona_knn",
+    "kotlin", "scala", "rust", "csharp", "go", "duckdb", "sedonadb",
+]
+
+
+def run_scenario(scenario, solutions=None):
     uprn_table = scenario["uprn_table"]
     codepoint_table = scenario["codepoint_table"]
     print(f"\n{'=' * 60}")
@@ -243,6 +231,7 @@ def run_scenario(scenario):
     # Pass statement_timeout slightly under the wall-clock timeout so Postgres
     # cancels the query itself before the subprocess timeout fires.
     sql_timeout_ms = int(timeout * 950) if timeout else None
+    _run = lambda name: solutions is None or name in solutions
 
     if reference_csv:
         print("--- Rust (generating reference) ---")
@@ -264,137 +253,152 @@ def run_scenario(scenario):
             record_timing(dataset, "SQL distinct", elapsed)
         reference = pd.read_csv("sql/sql_distinct/result.csv")
 
-    print("--- SQL lateral ---")
-    elapsed = run_script(
-        "sql/sql_lateral/knn.py",
-        uprn_table,
-        codepoint_table,
-        timeout=timeout,
-        statement_timeout_ms=sql_timeout_ms,
-    )
-    if elapsed is not None:
-        record_timing(dataset, "SQL lateral", elapsed)
-        check("sql/sql_lateral/result.csv", reference)
+    if _run("sql_lateral"):
+        print("--- SQL lateral ---")
+        elapsed = run_script(
+            "sql/sql_lateral/knn.py",
+            uprn_table,
+            codepoint_table,
+            timeout=timeout,
+            statement_timeout_ms=sql_timeout_ms,
+        )
+        if elapsed is not None:
+            record_timing(dataset, "SQL lateral", elapsed)
+            check("sql/sql_lateral/result.csv", reference)
 
-    print("--- GeoPandas sjoin_nearest ---")
-    elapsed = run_script("python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    if elapsed is not None:
-        record_timing(dataset, "Geopandas sjoin_nearest", elapsed)
-        check("python/geopandas/result.csv", reference)
+    if _run("geopandas"):
+        print("--- GeoPandas sjoin_nearest ---")
+        elapsed = run_script("python/geopandas/knn.py", uprn_table, codepoint_table, timeout=timeout)
+        if elapsed is not None:
+            record_timing(dataset, "Geopandas sjoin_nearest", elapsed)
+            check("python/geopandas/result.csv", reference)
 
-    print("--- Shapely all vs all ---")
-    elapsed = run_script(
-        "python/shapely_all_vs_all/knn.py",
-        uprn_table,
-        codepoint_table,
-        timeout=timeout,
-    )
-    if elapsed is not None:
-        record_timing(dataset, "Shapely all vs all", elapsed)
-        check("python/shapely_all_vs_all/result.csv", reference)
+    if _run("shapely_all_vs_all"):
+        print("--- Shapely all vs all ---")
+        elapsed = run_script(
+            "python/shapely_all_vs_all/knn.py",
+            uprn_table,
+            codepoint_table,
+            timeout=timeout,
+        )
+        if elapsed is not None:
+            record_timing(dataset, "Shapely all vs all", elapsed)
+            check("python/shapely_all_vs_all/result.csv", reference)
 
-    print("--- Shapely strtree ---")
-    elapsed = run_script(
-        "python/shapely_strtree/knn.py",
-        uprn_table,
-        codepoint_table,
-        timeout=timeout,
-    )
-    if elapsed is not None:
-        record_timing(dataset, "Shapely strtree", elapsed)
-        check("python/shapely_strtree/result.csv", reference)
+    if _run("shapely_strtree"):
+        print("--- Shapely strtree ---")
+        elapsed = run_script(
+            "python/shapely_strtree/knn.py",
+            uprn_table,
+            codepoint_table,
+            timeout=timeout,
+        )
+        if elapsed is not None:
+            record_timing(dataset, "Shapely strtree", elapsed)
+            check("python/shapely_strtree/result.csv", reference)
 
-    print("--- Scikit-Learn ---")
-    elapsed = run_script("python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    if elapsed is not None:
-        record_timing(dataset, "Scikit-Learn nearest neighbour", elapsed)
-        check("python/sklearn/result.csv", reference)
+    if _run("sklearn"):
+        print("--- Scikit-Learn ---")
+        elapsed = run_script("python/sklearn/knn.py", uprn_table, codepoint_table, timeout=timeout)
+        if elapsed is not None:
+            record_timing(dataset, "Scikit-Learn nearest neighbour", elapsed)
+            check("python/sklearn/result.csv", reference)
 
-    print("--- Apache Sedona partial sql ---")
-    elapsed = run_script_docker(
-        "python/sedona_partial/knn.py",
-        uprn_table,
-        codepoint_table,
-        timeout=timeout,
-    )
-    if elapsed is not None:
-        record_timing(dataset, "Apache Sedona partial sql", elapsed)
-        check("python/sedona_partial/result.csv", reference)
+    if _run("sedona_partial"):
+        print("--- Apache Sedona partial sql ---")
+        elapsed = run_script_docker(
+            "python/sedona_partial/knn.py",
+            uprn_table,
+            codepoint_table,
+            timeout=timeout,
+        )
+        if elapsed is not None:
+            record_timing(dataset, "Apache Sedona partial sql", elapsed)
+            check("python/sedona_partial/result.csv", reference)
 
-    print("--- Apache Sedona pure sql ---")
-    elapsed = run_script_docker(
-        "python/sedona_pure/knn.py",
-        uprn_table,
-        codepoint_table,
-        timeout=timeout,
-    )
-    if elapsed is not None:
-        record_timing(dataset, "Apache Sedona pure sql", elapsed)
-        check("python/sedona_pure/result.csv", reference)
+    if _run("sedona_pure"):
+        print("--- Apache Sedona pure sql ---")
+        elapsed = run_script_docker(
+            "python/sedona_pure/knn.py",
+            uprn_table,
+            codepoint_table,
+            timeout=timeout,
+        )
+        if elapsed is not None:
+            record_timing(dataset, "Apache Sedona pure sql", elapsed)
+            check("python/sedona_pure/result.csv", reference)
 
-    print("--- Apache Sedona st_knn ---")
-    elapsed = run_script_docker(
-        "python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout
-    )
-    if elapsed is not None:
-        record_timing(dataset, "Apache Sedona st_knn", elapsed)
-        check("python/sedona_knn/result.csv", reference)
+    if _run("sedona_knn"):
+        print("--- Apache Sedona st_knn ---")
+        elapsed = run_script_docker(
+            "python/sedona_knn/knn.py", uprn_table, codepoint_table, timeout=timeout
+        )
+        if elapsed is not None:
+            record_timing(dataset, "Apache Sedona st_knn", elapsed)
+            check("python/sedona_knn/result.csv", reference)
 
-    print("--- Kotlin ---")
-    results = run_kotlin(timeout=timeout)
-    if results is not None:
-        for k, v in results.items():
-            record_timing(dataset, k, v)
-        check("kotlin/kotlin_all_vs_all.csv", reference)
-        check("kotlin/kotlin_tree.csv", reference)
-
-    print("--- Scala ---")
-    results = run_scala(timeout=timeout)
-    if results is not None:
-        for k, v in results.items():
-            record_timing(dataset, k, v)
-        check("scala/scala_all_vs_all.csv", reference)
-        check("scala/scala_tree.csv", reference)
-
-    if not reference_csv:
-        print("--- Rust ---")
-        results = run_rust(timeout=timeout)
+    if _run("kotlin"):
+        print("--- Kotlin ---")
+        results = run_kotlin(timeout=timeout)
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
+            check("kotlin/kotlin_all_vs_all.csv", reference)
+            check("kotlin/kotlin_tree.csv", reference)
+
+    if _run("scala"):
+        print("--- Scala ---")
+        results = run_scala(timeout=timeout)
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
+            check("scala/scala_all_vs_all.csv", reference)
+            check("scala/scala_tree.csv", reference)
+
+    if _run("rust"):
+        if not reference_csv:
+            print("--- Rust ---")
+            results = run_rust(timeout=timeout)
+            if results is not None:
+                for k, v in results.items():
+                    record_timing(dataset, k, v)
+                check("rust/rust_all_vs_all.csv", reference)
+                check("rust/rust_tree.csv", reference)
+        else:
             check("rust/rust_all_vs_all.csv", reference)
             check("rust/rust_tree.csv", reference)
-    else:
-        check("rust/rust_all_vs_all.csv", reference)
-        check("rust/rust_tree.csv", reference)
 
-    print("--- C# ---")
-    results = run_csharp(timeout=timeout)
-    if results is not None:
-        for k, v in results.items():
-            record_timing(dataset, k, v)
-        check("csharp_all_vs_all.csv", reference)
-        check("csharp_tree.csv", reference)
+    if _run("csharp"):
+        print("--- C# ---")
+        results = run_csharp(timeout=timeout)
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
+            check("csharp_all_vs_all.csv", reference)
+            check("csharp_tree.csv", reference)
 
-    print("--- Go ---")
-    results = run_go(timeout=timeout)
-    if results is not None:
-        for k, v in results.items():
-            record_timing(dataset, k, v)
-        check("go/go_all_vs_all.csv", reference)
-        check("go/go_tree.csv", reference)
+    if _run("go"):
+        print("--- Go ---")
+        results = run_go(timeout=timeout)
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
+            check("go/go_all_vs_all.csv", reference)
+            check("go/go_tree.csv", reference)
 
-    print("--- DuckDB ---")
-    elapsed = run_script("python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    if elapsed is not None:
-        record_timing(dataset, "DuckDB", elapsed)
-        check("python/duckdb/result.csv", reference)
+    if _run("duckdb"):
+        print("--- DuckDB ---")
+        elapsed = run_script("python/duckdb/knn.py", uprn_table, codepoint_table, timeout=timeout)
+        if elapsed is not None:
+            record_timing(dataset, "DuckDB", elapsed)
+            check("python/duckdb/result.csv", reference)
 
-    print("--- SedonaDB ---")
-    elapsed = run_script("python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout)
-    if elapsed is not None:
-        record_timing(dataset, "SedonaDB", elapsed)
-        check("python/sedonadb/result.csv", reference)
+    if _run("sedonadb"):
+        print("--- SedonaDB ---")
+        elapsed = run_script("python/sedonadb/knn.py", uprn_table, codepoint_table, timeout=timeout)
+        if elapsed is not None:
+            record_timing(dataset, "SedonaDB", elapsed)
+            check("python/sedonadb/result.csv", reference)
 
     return reference
 

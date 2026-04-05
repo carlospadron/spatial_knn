@@ -2,7 +2,7 @@ import argparse
 import os
 import pandas as pd
 
-from runners import SCENARIOS, check, make_plot, run_scenario, update_readme
+from runners import SCENARIOS, SOLUTION_NAMES, check, make_plot, run_scenario, update_readme
 
 
 def main():
@@ -14,14 +14,23 @@ def main():
         default=None,
         help="Run a single named scenario (default: run all)",
     )
+    parser.add_argument(
+        "--solution",
+        choices=SOLUTION_NAMES,
+        nargs="+",
+        default=None,
+        metavar="SOLUTION",
+        help=f"Run only specific solutions. Choices: {', '.join(SOLUTION_NAMES)}",
+    )
     args = parser.parse_args()
     scenarios_to_run = [
         s for s in SCENARIOS if args.scenario is None or s["name"] == args.scenario
     ]
+    solutions = set(args.solution) if args.solution else None
 
     scenario_references = {}
     for scenario in scenarios_to_run:
-        ref = run_scenario(scenario)
+        ref = run_scenario(scenario, solutions=solutions)
         scenario_references[scenario["name"]] = ref
 
     # Cloud service checks (use White Horse reference for validation)

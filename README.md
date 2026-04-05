@@ -51,7 +51,13 @@ uv run --env-file .env main.py
 # Run a single scenario
 uv run --env-file .env main.py --scenario "White Horse (small)"
 uv run --env-file .env main.py --scenario "Full GB (large)"
+
+# Run specific solutions only (one or more)
+uv run --env-file .env main.py --scenario "Full GB (large)" --solution shapely_strtree
+uv run --env-file .env main.py --scenario "Full GB (large)" --solution shapely_all_vs_all shapely_strtree geopandas
 ```
+
+Available solution names: `sql_distinct`, `sql_lateral`, `geopandas`, `shapely_all_vs_all`, `shapely_strtree`, `sklearn`, `sedona_partial`, `sedona_pure`, `sedona_knn`, `kotlin`, `scala`, `rust`, `csharp`, `go`, `duckdb`, `sedonadb`.
 
 Each Python-based benchmark script runs inside the `spatial_knn_python` Docker container via `docker run --rm`. On timeout, `docker kill` is called — this guarantees immediate termination of the container and any in-flight work (including long-running GeoPandas or SQL operations).
 
@@ -90,38 +96,53 @@ For the large dataset, Rust runs first to generate the reference output (SQL dis
 
 
 <!-- RESULTS_START -->
-## Results
+## Results � White Horse (small)
 
-| test                           | time                   |
-|:-------------------------------|:-----------------------|
-| Go strtree                     | 0 days 00:00:00.321024 |
-| rust strtree                   | 0 days 00:00:00.346612 |
-| SedonaDB                       | 0 days 00:00:00.750684 |
-| Go all vs all                  | 0 days 00:00:00.916740 |
-| Shapely strtree                | 0 days 00:00:01.319851 |
-| Geopandas sjoin_nearest        | 0 days 00:00:01.791905 |
-| BigQuery                       | 0 days 00:00:03        |
-| kotlin strtree                 | 0 days 00:00:03.627000 |
-| rust all vs all                | 0 days 00:00:04.044441 |
-| scala strtree                  | 0 days 00:00:04.142000 |
-| C# strtree                     | 0 days 00:00:05.894800 |
-| Apache Sedona st_knn           | 0 days 00:00:09.269729 |
-| DuckDB                         | 0 days 00:00:17.465032 |
-| C# all vs all                  | 0 days 00:00:22.904955 |
-| Scikit-Learn nearest neighbour | 0 days 00:00:25.355890 |
-| RedShift                       | 0 days 00:00:26        |
-| scala all vs all               | 0 days 00:00:27.585000 |
-| kotlin all vs all              | 0 days 00:00:32.706000 |
-| Snowflake h3                   | 0 days 00:00:45        |
-| Databricks pure sql            | 60s                    |
-| SQL lateral                    | 63s                    |
-| Snowflake cartesian            | 75s                    |
-| Athena                         | 110s                   |
-| Shapely all vs all             | 127s                   |
-| SQL distinct                   | 130s                   |
-| Apache Sedona partial sql      | 152s                   |
-| Apache Sedona pure sql         | 158s                   |
-| BigQuery (Slot time consumed)  | 310s                   |
+| test                           | elapsed_s   |
+|:-------------------------------|:------------|
+| SQL distinct                   | 113s        |
+| SQL lateral                    | 42s         |
+| Geopandas sjoin_nearest        | 1s          |
+| Shapely all vs all             | 94s         |
+| Shapely strtree                | 1s          |
+| Scikit-Learn nearest neighbour | 19s         |
+| Apache Sedona partial sql      | 152s        |
+| Apache Sedona pure sql         | 135s        |
+| Apache Sedona st_knn           | 9s          |
+| kotlin all vs all              | 33s         |
+| kotlin strtree                 | 4s          |
+| scala all vs all               | 28s         |
+| scala strtree                  | 4s          |
+| rust all vs all                | 4s          |
+| rust strtree                   | 0.35s       |
+| C# all vs all                  | 23s         |
+| C# strtree                     | 6s          |
+| Go all vs all                  | 0.92s       |
+| Go strtree                     | 0.32s       |
+| DuckDB                         | 17s         |
+| SedonaDB                       | 0.51s       |
+| BigQuery                       | 3s          |
+| BigQuery (Slot time consumed)  | 310s        |
+| RedShift                       | 26s         |
+| Athena                         | 110s        |
+| Snowflake cartesian            | 75s         |
+| Snowflake h3                   | 45s         |
+| Databricks pure sql            | 60s         |
+| Kotlin                         | 42s         |
+| Scala                          | 34s         |
+| Rust                           | 6s          |
+| C#                             | 28s         |
+| Go                             | 3s          |
+
+## Results � Full GB (large)
+
+| test   | elapsed_s   |
+|:-------|:------------|
+| Rust   | 7s          |
+| Kotlin | 51s         |
+| Scala  | 34s         |
+| C#     | 33s         |
+| Go     | 3s          |
 <!-- RESULTS_END -->
 
 ![Benchmark results](results.png)
