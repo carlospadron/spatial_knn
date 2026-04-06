@@ -157,8 +157,16 @@ func main() {
 
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, dbName)
 
-	uprn := fetchData(connStr, "SELECT uprn::text, ST_AsText(geom) FROM os.open_uprn_white_horse")
-	codepoint := fetchData(connStr, "SELECT postcode, ST_AsText(geom) FROM os.code_point_open_white_horse ORDER BY postcode")
+	uprnTable := os.Getenv("UPRN_TABLE")
+	if uprnTable == "" {
+		uprnTable = "os.open_uprn_white_horse"
+	}
+	codepointTable := os.Getenv("CODEPOINT_TABLE")
+	if codepointTable == "" {
+		codepointTable = "os.code_point_open_white_horse"
+	}
+	uprn := fetchData(connStr, "SELECT uprn::text, ST_AsText(geom) FROM "+uprnTable)
+	codepoint := fetchData(connStr, "SELECT postcode, ST_AsText(geom) FROM "+codepointTable+" ORDER BY postcode")
 
 	t1 := time.Now()
 	out1 := allVsAll(uprn, codepoint)

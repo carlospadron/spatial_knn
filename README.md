@@ -69,9 +69,9 @@ Two scenarios are defined:
 | Dataset | UPRN table | Codepoint table | Timeout | Reference |
 |---|---|---|---|---|
 | White Horse (small) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` | none | SQL distinct |
-| Full GB (large) | `os.os_open_uprn` | `os.codepoint_polygons` | 30 min | Rust (strtree) |
+| Full GB (large) | `os.os_open_uprn` | `os.codepoint_polygons` | 1 hr | Rust (strtree) |
 
-For the large dataset, Rust runs first to generate the reference output (SQL distinct would take >3 hours). All other methods are limited to 30 minutes; PostgreSQL queries also receive a matching `statement_timeout` so the server-side query is cancelled before the container timeout fires.
+For the large dataset, Rust runs first to generate the reference output (SQL distinct would take >3 hours). All other methods are limited to 1 hour; PostgreSQL queries also receive a matching `statement_timeout` so the server-side query is cancelled before the container timeout fires.
 
 ## Code structure
 

@@ -85,8 +85,10 @@ fun main() {
     val dbName = System.getenv("DB_NAME") ?: "gis"
 
     val db = DbManager(user, pass, host, port, dbName)
-    val sql1 = """SELECT uprn::text id, ST_AsText(geom) geom FROM os.open_uprn_white_horse"""
-    val sql2 = """SELECT postcode id, ST_AsText(geom) geom FROM os.code_point_open_white_horse"""
+    val uprnTable = System.getenv("UPRN_TABLE") ?: "os.open_uprn_white_horse"
+    val codepointTable = System.getenv("CODEPOINT_TABLE") ?: "os.code_point_open_white_horse"
+    val sql1 = "SELECT uprn::text id, ST_AsText(geom) geom FROM $uprnTable"
+    val sql2 = "SELECT postcode id, ST_AsText(geom) geom FROM $codepointTable"
 
     val uprn = db.getTable(sql1)
     val codepoint = db.getTable(sql2)

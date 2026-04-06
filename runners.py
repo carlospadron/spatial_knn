@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 
-_DEFAULT_TIMEOUT = 1800  # 30 min hard ceiling so nothing hangs forever
+_DEFAULT_TIMEOUT = 3600  # 1 hr hard ceiling so nothing hangs forever
 
 
 def _docker_compose_run(service, container_name, cmd_args, timeout=None):
@@ -86,11 +86,14 @@ def run_script_docker(script_path, uprn_table=None, codepoint_table=None, timeou
     return elapsed
 
 
-def run_kotlin(timeout=None):
+def run_kotlin(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Kotlin KNN implementation inside Docker and return a dict of test name to elapsed seconds."""
+    env_args = []
+    if uprn_table:
+        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
     try:
         result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T", "kotlin", "mvn", "compile", "exec:java"],
+            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["kotlin", "mvn", "compile", "exec:java"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -104,11 +107,14 @@ def run_kotlin(timeout=None):
     return pd.read_csv("kotlin/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_scala(timeout=None):
+def run_scala(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Scala sbt project inside Docker and return a dict of test name to elapsed seconds."""
+    env_args = []
+    if uprn_table:
+        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
     try:
         result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T", "scala", "sbt", "run"],
+            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["scala", "sbt", "run"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -122,11 +128,14 @@ def run_scala(timeout=None):
     return pd.read_csv("scala/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_rust(timeout=None):
+def run_rust(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Rust project inside Docker and return a dict of test name to elapsed seconds."""
+    env_args = []
+    if uprn_table:
+        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
     try:
         result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T", "rust", "cargo", "run", "--release"],
+            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["rust", "cargo", "run", "--release"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -140,11 +149,14 @@ def run_rust(timeout=None):
     return pd.read_csv("rust/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_csharp(timeout=None):
+def run_csharp(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the C# project inside Docker and return a dict of test name to elapsed seconds."""
+    env_args = []
+    if uprn_table:
+        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
     try:
         result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T", "csharp",
+            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["csharp",
              "dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
             capture_output=True,
             text=True,
@@ -159,11 +171,14 @@ def run_csharp(timeout=None):
     return pd.read_csv("csharp/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_go(timeout=None):
+def run_go(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Go project inside Docker and return a dict of test name to elapsed seconds."""
+    env_args = []
+    if uprn_table:
+        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
     try:
         result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T", "go", "go", "run", "."],
+            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["go", "go", "run", "."],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -211,7 +226,7 @@ SCENARIOS = [
         "codepoint_table": "os.codepoint_polygons",
         "plot_file": "results_full_gb.png",
         "reference_csv": "rust/rust_tree.csv",
-        "timeout": 1800,
+        "timeout": 3600,
     },
 ]
 
@@ -242,7 +257,7 @@ def run_scenario(scenario, solutions=None):
 
     if reference_csv:
         print("--- Rust (generating reference) ---")
-        results = run_rust(timeout=timeout)
+        results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
         if results:
             for k, v in results.items():
                 record_timing(dataset, k, v)
@@ -346,7 +361,7 @@ def run_scenario(scenario, solutions=None):
 
     if _run("kotlin"):
         print("--- Kotlin ---")
-        results = run_kotlin(timeout=timeout)
+        results = run_kotlin(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
@@ -355,7 +370,7 @@ def run_scenario(scenario, solutions=None):
 
     if _run("scala"):
         print("--- Scala ---")
-        results = run_scala(timeout=timeout)
+        results = run_scala(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
@@ -365,7 +380,7 @@ def run_scenario(scenario, solutions=None):
     if _run("rust"):
         if not reference_csv:
             print("--- Rust ---")
-            results = run_rust(timeout=timeout)
+            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
             if results is not None:
                 for k, v in results.items():
                     record_timing(dataset, k, v)
@@ -377,7 +392,7 @@ def run_scenario(scenario, solutions=None):
 
     if _run("csharp"):
         print("--- C# ---")
-        results = run_csharp(timeout=timeout)
+        results = run_csharp(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
@@ -386,7 +401,7 @@ def run_scenario(scenario, solutions=None):
 
     if _run("go"):
         print("--- Go ---")
-        results = run_go(timeout=timeout)
+        results = run_go(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)

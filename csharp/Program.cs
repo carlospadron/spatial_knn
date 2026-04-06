@@ -10,8 +10,10 @@ var host = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
 var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "gis";
 
 var db = new DbManager(user, pass, host, dbName);
-var sql1 = """SELECT uprn::text id, ST_AsText(geom) geom FROM os.open_uprn_white_horse""";
-var sql2 = """SELECT postcode id, ST_AsText(geom) geom FROM os.code_point_open_white_horse""";
+var uprnTable = Environment.GetEnvironmentVariable("UPRN_TABLE") ?? "os.open_uprn_white_horse";
+var codepointTable = Environment.GetEnvironmentVariable("CODEPOINT_TABLE") ?? "os.code_point_open_white_horse";
+var sql1 = $"SELECT uprn::text id, ST_AsText(geom) geom FROM {uprnTable}";
+var sql2 = $"SELECT postcode id, ST_AsText(geom) geom FROM {codepointTable}";
 
 var uprn = db.GetTable(sql1);
 var codepoint = db.GetTable(sql2);
