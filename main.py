@@ -22,7 +22,24 @@ def main():
         metavar="SOLUTION",
         help=f"Run only specific solutions. Choices: {', '.join(SOLUTION_NAMES)}",
     )
+    parser.add_argument(
+        "--results-only",
+        action="store_true",
+        help="Skip benchmarks; regenerate plot and README from existing baselines.csv",
+    )
     args = parser.parse_args()
+
+    if args.results_only:
+        baselines = (
+            pd.read_csv("baselines.csv")
+            .groupby(["dataset", "test"], sort=False)["elapsed_s"]
+            .min()
+            .reset_index()
+        )
+        make_plot(baselines, "results.png")
+        update_readme(baselines)
+        return
+
     scenarios_to_run = [
         s for s in SCENARIOS if args.scenario is None or s["name"] == args.scenario
     ]

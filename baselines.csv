@@ -27,3 +27,43 @@ White Horse (small),Athena,110.0
 White Horse (small),Snowflake cartesian,75.0
 White Horse (small),Snowflake h3,45.0
 White Horse (small),Databricks pure sql,60.0
+White Horse (small),SQL distinct,143.602608
+White Horse (small),SQL lateral,52.648144
+White Horse (small),Geopandas sjoin_nearest,1.765666
+White Horse (small),Shapely all vs all,114.439511
+White Horse (small),Shapely strtree,1.242942
+White Horse (small),Scikit-Learn nearest neighbour,24.167902
+White Horse (small),Apache Sedona partial sql,226.90386772155762
+White Horse (small),Apache Sedona pure sql,135.1552917957306
+White Horse (small),Apache Sedona st_knn,27.590885162353516
+White Horse (small),Kotlin,42.13486623764038
+White Horse (small),Scala,40.62379312515259
+White Horse (small),Rust,35.36863088607788
+White Horse (small),C#,36.657947301864624
+White Horse (small),Go,7.8728930950164795
+White Horse (small),DuckDB,18.132617
+White Horse (small),SedonaDB,0.51259
+White Horse (small),SQL distinct,113.374198
+White Horse (small),SQL lateral,42.104898
+White Horse (small),Geopandas sjoin_nearest,1.2596530000000001
+White Horse (small),Shapely all vs all,93.909773
+White Horse (small),Shapely strtree,1.025577
+White Horse (small),Scikit-Learn nearest neighbour,18.652854
+White Horse (small),Kotlin,48.08704090118408
+White Horse (small),Scala,34.17505216598511
+White Horse (small),Rust,5.5814173221588135
+White Horse (small),C#,27.92426037788391
+White Horse (small),Go,3.297215223312378
+White Horse (small),DuckDB,18.596735
+White Horse (small),SedonaDB,0.667334
+Full GB (large),Geopandas sjoin_nearest,945.043243
+Full GB (large),Kotlin all vs all,37.918
+Full GB (large),Kotlin strtree,3.0
+Full GB (large),Scala all vs all,17.641
+Full GB (large),Scala strtree,2.599
+Full GB (large),Go all vs all,0.983307
+Full GB (large),Go strtree,0.393299
+Full GB (large),Rust all vs all,9.599608101
+Full GB (large),Rust strtree,0.787586849
+Full GB (large),C# all vs all,19.6014826
+Full GB (large),C# strtree,6.8345973

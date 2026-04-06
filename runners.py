@@ -415,50 +415,35 @@ def make_plot(baselines, filename="results.png"):
     datasets = df["dataset"].unique()
     colors = ["steelblue", "coral"]
 
-    order = (
-        df[df["dataset"] == datasets[0]]
-        .sort_values("elapsed_s")
-        .set_index("test")["elapsed_s"]
-    )
-    all_tests = list(order.index)
-    for t in df["test"].unique():
-        if t not in all_tests:
-            all_tests.append(t)
-    all_tests = [t for t in all_tests if df[df["test"] == t]["elapsed_s"].max() > 0]
+    fig, axes = plt.subplots(1, len(datasets), figsize=(14 * len(datasets) // 2, 10), squeeze=False)
 
-    n_tests = len(all_tests)
-    n_ds = len(datasets)
-    bar_h = 0.8 / n_ds
-    y = np.arange(n_tests)
+    for ax, dataset, color in zip(axes[0], datasets, colors):
+        sub = df[df["dataset"] == dataset].copy()
+        sub = sub[sub["elapsed_s"] > 0].sort_values("elapsed_s", ascending=True)
+        tests = list(sub["test"])
+        vals = list(sub["elapsed_s"])
+        y = np.arange(len(tests))
 
-    fig, ax = plt.subplots(figsize=(12, max(6, n_tests * 0.5)))
-    for i, (dataset, color) in enumerate(zip(datasets, colors)):
-        vals = [
-            df.loc[(df["dataset"] == dataset) & (df["test"] == t), "elapsed_s"].iloc[0]
-            if len(df.loc[(df["dataset"] == dataset) & (df["test"] == t)]) > 0
-            else 0
-            for t in all_tests
-        ]
-        bars = ax.barh(y + i * bar_h, vals, height=bar_h, label=dataset, color=color)
-        max_val = max(v for v in vals if v > 0) if any(v > 0 for v in vals) else 1
+        bars = ax.barh(y, vals, height=0.6, color=color)
+        max_val = max(vals) if vals else 1
         for bar, val in zip(bars, vals):
-            if val > 0:
-                label = f"{val:.2f}s" if val < 1 else f"{val:.0f}s"
-                ax.text(
-                    bar.get_width() + max_val * 0.01,
-                    bar.get_y() + bar.get_height() / 2,
-                    label,
-                    va="center",
-                    fontsize=7,
-                )
+            label = f"{val:.2f}s" if val < 1 else f"{val:.0f}s"
+            ax.text(
+                bar.get_width() + max_val * 0.01,
+                bar.get_y() + bar.get_height() / 2,
+                label,
+                va="center",
+                fontsize=8,
+            )
 
-    ax.set_yticks(y + bar_h * (n_ds - 1) / 2)
-    ax.set_yticklabels(all_tests)
-    ax.set_xlabel("Time (seconds)")
-    ax.set_title("KNN benchmark — time by method (lower is better)")
-    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.0f}s"))
-    ax.legend()
-    ax.set_xlim(0, df["elapsed_s"].max() * 1.18)
+        ax.set_yticks(y)
+        ax.set_yticklabels(tests)
+        ax.set_xlabel("Time (seconds)")
+        ax.set_title(dataset)
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.0f}s"))
+        ax.set_xlim(0, max_val * 1.2)
+
+    fig.suptitle("KNN benchmark — time by method (lower is better)", fontsize=13)
     plt.tight_layout()
     plt.savefig(filename, dpi=150)
     plt.show()
