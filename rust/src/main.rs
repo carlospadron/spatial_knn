@@ -56,14 +56,14 @@ fn nearest_neighbour2(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Po
     geoma.iter().map(
         |(uprn, point)| {
             let nearest = tree_a.nearest_neighbors(&point);
-            let postcodes: Vec<&String> = nearest.iter().map(
-                |point2|
-                    geomb
-                        .iter()
-                        .find(|(_s, p)| p == point2)
-                        .unwrap()
-                        .0
-            ).collect();
+            let mut postcodes: Vec<&String> = Vec::new();
+            for point2 in &nearest {
+                for (s, p) in geomb.iter() {
+                    if p == *point2 {
+                        postcodes.push(s);
+                    }
+                }
+            }
 
             let postcode = *postcodes.iter().min().unwrap();
             (uprn.clone(), (postcode.clone(), point.euclidean_distance(geomb.get(postcode).unwrap())))
