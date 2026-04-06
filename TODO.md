@@ -1,3 +1,2 @@
-- output results to a csv
-- plot from csv
-- package into docker images to also test memory
+- add dagster
+- add cloud solutions for large solutions
