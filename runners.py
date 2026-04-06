@@ -12,14 +12,16 @@ import pandas as pd
 _DEFAULT_TIMEOUT = 3600  # 1 hr hard ceiling so nothing hangs forever
 
 
-def _docker_compose_run(service, container_name, cmd_args, timeout=None):
+def _docker_compose_run(service, container_name, cmd_args, timeout=None, extra_docker_args=None):
     """Run a one-shot docker compose service by name; kill it cleanly on timeout."""
     effective_timeout = timeout if timeout is not None else _DEFAULT_TIMEOUT
     cmd = [
         "docker", "compose", "run", "--rm", "-T",
         "--name", container_name,
-        service,
-    ] + cmd_args
+    ]
+    if extra_docker_args:
+        cmd += extra_docker_args
+    cmd += [service] + cmd_args
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         stdout, stderr = proc.communicate(timeout=effective_timeout)
@@ -86,108 +88,89 @@ def run_script_docker(script_path, uprn_table=None, codepoint_table=None, timeou
     return elapsed
 
 
+def _env_args(uprn_table, codepoint_table):
+    """Build docker -e flags for table overrides."""
+    if not uprn_table:
+        return []
+    return ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
+
+
 def run_kotlin(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Kotlin KNN implementation inside Docker and return a dict of test name to elapsed seconds."""
-    env_args = []
-    if uprn_table:
-        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["kotlin", "mvn", "compile", "exec:java"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
+    name = f"knn_kotlin_{uuid.uuid4().hex[:8]}"
+    returncode, stdout, stderr = _docker_compose_run(
+        "kotlin", name, ["mvn", "compile", "exec:java"],
+        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
+    )
+    if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
-    if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
+    if returncode != 0:
+        print(f"FAILED (exit code {returncode})\n{stderr}")
         return None
     return pd.read_csv("kotlin/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_scala(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Scala sbt project inside Docker and return a dict of test name to elapsed seconds."""
-    env_args = []
-    if uprn_table:
-        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["scala", "sbt", "run"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
+    name = f"knn_scala_{uuid.uuid4().hex[:8]}"
+    returncode, stdout, stderr = _docker_compose_run(
+        "scala", name, ["sbt", "run"],
+        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
+    )
+    if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
-    if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
+    if returncode != 0:
+        print(f"FAILED (exit code {returncode})\n{stderr}")
         return None
     return pd.read_csv("scala/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_rust(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Rust project inside Docker and return a dict of test name to elapsed seconds."""
-    env_args = []
-    if uprn_table:
-        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["rust", "cargo", "run", "--release"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
+    name = f"knn_rust_{uuid.uuid4().hex[:8]}"
+    returncode, stdout, stderr = _docker_compose_run(
+        "rust", name, ["cargo", "run", "--release"],
+        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
+    )
+    if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
-    if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
+    if returncode != 0:
+        print(f"FAILED (exit code {returncode})\n{stderr}")
         return None
     return pd.read_csv("rust/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_csharp(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the C# project inside Docker and return a dict of test name to elapsed seconds."""
-    env_args = []
-    if uprn_table:
-        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["csharp",
-             "dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
+    name = f"knn_csharp_{uuid.uuid4().hex[:8]}"
+    returncode, stdout, stderr = _docker_compose_run(
+        "csharp", name, ["dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
+        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
+    )
+    if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
-    if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
+    if returncode != 0:
+        print(f"FAILED (exit code {returncode})\n{stderr}")
         return None
     return pd.read_csv("csharp/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
 def run_go(timeout=None, uprn_table=None, codepoint_table=None):
     """Run the Go project inside Docker and return a dict of test name to elapsed seconds."""
-    env_args = []
-    if uprn_table:
-        env_args += ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T"] + env_args + ["go", "go", "run", "."],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
+    name = f"knn_go_{uuid.uuid4().hex[:8]}"
+    returncode, stdout, stderr = _docker_compose_run(
+        "go", name, ["go", "run", "."],
+        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
+    )
+    if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
-    if result.returncode != 0:
-        print(f"FAILED (exit code {result.returncode})\n{result.stderr}")
+    if returncode != 0:
+        print(f"FAILED (exit code {returncode})\n{stderr}")
         return None
     return pd.read_csv("go/timings.csv").set_index("test")["elapsed_s"].to_dict()
 

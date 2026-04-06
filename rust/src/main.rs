@@ -91,9 +91,11 @@ fn main() {
     let host = std::env::var("DB_HOST").unwrap_or_else(|_| "localhost".to_string());
     let db = std::env::var("DB_NAME").unwrap_or_else(|_| "gis".to_string());
 
-    let sql = "SELECT uprn::text, ST_AsText(geom) FROM os.open_uprn_white_horse";
+    let uprn_table = std::env::var("UPRN_TABLE").unwrap_or_else(|_| "os.open_uprn_white_horse".to_string());
+    let codepoint_table = std::env::var("CODEPOINT_TABLE").unwrap_or_else(|_| "os.code_point_open_white_horse".to_string());
+    let sql = format!("SELECT uprn::text, ST_AsText(geom) FROM {}", uprn_table);
     let uprn = db_manager(&user, &password, &host, &db, &sql);
-    let sql = "SELECT postcode, ST_AsText(geom) FROM os.code_point_open_white_horse";
+    let sql = format!("SELECT postcode, ST_AsText(geom) FROM {}", codepoint_table);
     let codepoint = db_manager(&user, &password, &host, &db, &sql);
 
     let start = Instant::now();
