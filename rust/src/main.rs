@@ -51,22 +51,27 @@ fn nearest_neighbour(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Poi
 
 fn nearest_neighbour2(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Point>) -> HashMap<String, (String, f64)>
 {
-    let geomb2 = geomb.clone();
-    let tree_a: RTree<Point<_>> = RTree::bulk_load(geomb2.into_values().collect::<Vec<_>>());
+    let mut reverse: HashMap<[u64; 2], Vec<&String>> = HashMap::new();
+    for (name, pt) in geomb.iter() {
+        reverse.entry([pt.x().to_bits(), pt.y().to_bits()])
+            .or_default()
+            .push(name);
+    }
+    let tree: RTree<Point<_>> = RTree::bulk_load(geomb.values().cloned().collect::<Vec<_>>());
     geoma.iter().map(
         |(uprn, point)| {
-            let nearest = tree_a.nearest_neighbors(&point);
-            let mut postcodes: Vec<&String> = Vec::new();
-            for point2 in &nearest {
-                for (s, p) in geomb.iter() {
-                    if p == *point2 {
-                        postcodes.push(s);
-                    }
+            let mut nearest_iter = tree.nearest_neighbor_iter(point);
+            let first = nearest_iter.next().unwrap();
+            let min_dist = point.euclidean_distance(first);
+            let mut candidates: Vec<&String> = reverse[&[first.x().to_bits(), first.y().to_bits()]].clone();
+            for pt in nearest_iter {
+                if point.euclidean_distance(pt) > min_dist {
+                    break;
                 }
+                candidates.extend(&reverse[&[pt.x().to_bits(), pt.y().to_bits()]]);
             }
-
-            let postcode = *postcodes.iter().min().unwrap();
-            (uprn.clone(), (postcode.clone(), point.euclidean_distance(geomb.get(postcode).unwrap())))
+            let postcode = candidates.iter().min().unwrap();
+            (uprn.clone(), ((*postcode).clone(), min_dist))
         }
     ).collect()
 }
