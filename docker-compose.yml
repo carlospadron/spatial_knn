@@ -99,7 +99,7 @@ services:
     mem_limit: 24g
 
   csharp:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     depends_on:
       - postgres
     env_file: .env

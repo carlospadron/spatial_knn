@@ -45,10 +45,10 @@ knn = sd.sql("""
         SELECT
             u.uprn      AS origin,
             c.postcode  AS destination,
-            ST_Distance(u.geom, c.geom) AS distance,
+            round(ST_Distance(u.geom, c.geom), 2) AS distance,
             row_number() OVER (
                 PARTITION BY u.uprn
-                ORDER BY ST_Distance(u.geom, c.geom) ASC, c.postcode
+                ORDER BY round(ST_Distance(u.geom, c.geom), 2) ASC, c.postcode
             ) AS rn
         FROM uprn u
         JOIN codepoint c ON ST_KNN(u.geom, c.geom, 10, FALSE)

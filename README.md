@@ -96,7 +96,7 @@ For the large dataset, Rust runs first to generate the reference output (SQL dis
 
 
 <!-- RESULTS_START -->
-## Results ï¿½ White Horse (small)
+## Results — White Horse (small)
 
 | test                           | elapsed_s   |
 |:-------------------------------|:------------|
@@ -134,15 +134,21 @@ For the large dataset, Rust runs first to generate the reference output (SQL dis
 | C#                             | 28s         |
 | Go                             | 3s          |
 
-## Results ï¿½ Full GB (large)
+## Results — Full GB (large)
 
-| test   | elapsed_s   |
-|:-------|:------------|
-| Rust   | 7s          |
-| Kotlin | 51s         |
-| Scala  | 34s         |
-| C#     | 33s         |
-| Go     | 3s          |
+| test                    | elapsed_s   |
+|:------------------------|:------------|
+| Rust all vs all         | 4s          |
+| Rust strtree            | 0.31s       |
+| Geopandas sjoin_nearest | 945s        |
+| Kotlin all vs all       | 38s         |
+| Kotlin strtree          | 3s          |
+| Scala all vs all        | 18s         |
+| Scala strtree           | 3s          |
+| Go all vs all           | 0.98s       |
+| Go strtree              | 0.39s       |
+| C# all vs all           | 20s         |
+| C# strtree              | 7s          |
 <!-- RESULTS_END -->
 
 ![Benchmark results](results.png)

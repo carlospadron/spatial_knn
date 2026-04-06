@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import time
 import uuid
@@ -8,8 +9,12 @@ import numpy as np
 import pandas as pd
 
 
+_DEFAULT_TIMEOUT = 1800  # 30 min hard ceiling so nothing hangs forever
+
+
 def _docker_compose_run(service, container_name, cmd_args, timeout=None):
     """Run a one-shot docker compose service by name; kill it cleanly on timeout."""
+    effective_timeout = timeout if timeout is not None else _DEFAULT_TIMEOUT
     cmd = [
         "docker", "compose", "run", "--rm", "-T",
         "--name", container_name,
@@ -17,10 +22,12 @@ def _docker_compose_run(service, container_name, cmd_args, timeout=None):
     ] + cmd_args
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
-        stdout, stderr = proc.communicate(timeout=timeout)
+        stdout, stderr = proc.communicate(timeout=effective_timeout)
         return proc.returncode, stdout, stderr
     except subprocess.TimeoutExpired:
-        subprocess.run(["docker", "kill", container_name], capture_output=True)
+        kill_result = subprocess.run(["docker", "kill", container_name], capture_output=True)
+        if kill_result.returncode != 0:
+            subprocess.run(["docker", "stop", "--time", "5", container_name], capture_output=True)
         proc.kill()
         proc.communicate()
         return None, "", ""
