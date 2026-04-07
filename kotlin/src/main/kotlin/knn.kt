@@ -60,7 +60,10 @@ fun nearestNeighbour2(geoma: Map<String, Geometry>, geomb: Map<String, Geometry>
             a ->
                 val knnGeom = t.nearestNeighbour(a.value.envelopeInternal, a.value, GeometryItemDistance(), 100).toList() as List<Geometry>
                 val knn = knnGeom.associate { y -> geomb2[y] to a.value.distance(y) }
-                    .minWithOrNull(compareBy({ b -> b.value },{ b -> b.key}))
+                    .minWithOrNull(Comparator { x, y ->
+                        val diff = x.value - y.value
+                        if (kotlin.math.abs(diff) < 1e-9) x.key!!.compareTo(y.key!!) else diff.compareTo(0.0)
+                    })
                 a.key to (knn?.key to knn?.value)
     }.toMap() as Map<String, Pair<String?, Double>>
 

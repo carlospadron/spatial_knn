@@ -76,7 +76,10 @@ static Dictionary<string, (string, double)> NearestNeighbour2(
             var knnGeom = tree.NearestNeighbour(a.Value.EnvelopeInternal, a.Value, new GeometryItemDistance(), 100);
             var knn = knnGeom
                 .Select(g => (geomBReverse[g], a.Value.Distance(g)))
-                .MinBy(x => (x.Item2, x.Item1))!;
+                .Aggregate((best, cur) =>
+                    Math.Abs(cur.Item2 - best.Item2) < 1e-9
+                        ? (string.Compare(cur.Item1, best.Item1, StringComparison.Ordinal) < 0 ? cur : best)
+                        : (cur.Item2 < best.Item2 ? cur : best));
             return knn;
         });
 }

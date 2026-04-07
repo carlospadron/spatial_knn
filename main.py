@@ -27,6 +27,11 @@ def main():
         action="store_true",
         help="Skip benchmarks; regenerate plot and README from existing baselines.csv",
     )
+    parser.add_argument(
+        "--skip-reference",
+        action="store_true",
+        help="Skip recomputing the reference CSV if it already exists on disk",
+    )
     args = parser.parse_args()
 
     if args.results_only:
@@ -47,7 +52,7 @@ def main():
 
     scenario_references = {}
     for scenario in scenarios_to_run:
-        ref = run_scenario(scenario, solutions=solutions)
+        ref = run_scenario(scenario, solutions=solutions, skip_reference=args.skip_reference)
         scenario_references[scenario["name"]] = ref
 
     # Cloud service checks (use White Horse reference for validation)

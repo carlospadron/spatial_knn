@@ -114,7 +114,7 @@ func strtreeKNN(uprn, codepoint []entry) []result {
 				}
 				dSq := distSq(u.geom, c.geom)
 				d := math.Sqrt(dSq)
-				if d < bestDist || (d == bestDist && c.id < bestID) {
+					if d < bestDist || (math.Abs(d-bestDist) < 1e-9 && c.id < bestID) {
 					bestDist = d
 					bestDistSq = dSq // use raw sum-of-squares, not d*d, to avoid sqrt roundtrip error
 					bestID = c.id

@@ -53,7 +53,11 @@ def nearestNeighbour2(geoma: Map[String, Geometry], geomb: Map[String, Geometry]
   geoma.map (
     x =>
       val knnGeom = t.nearestNeighbour(x._2.getEnvelopeInternal, x._2, GeometryItemDistance(), 100).toList.asInstanceOf[List[Geometry]]
-      val knn = knnGeom.map(y => (geomb2(y), x._2.distance(y))).minBy((x,y) => (y, x))
+      val knn = knnGeom.map(y => (geomb2(y), x._2.distance(y))).reduceLeft { (a, b) =>
+        if math.abs(a._2 - b._2) < 1e-9 then
+          if a._1 < b._1 then a else b
+        else if a._2 < b._2 then a else b
+      }
 
       (x._1, knn._1, knn._2)
     )

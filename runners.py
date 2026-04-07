@@ -191,8 +191,15 @@ def check(result_csv, ref):
     if len(mismatches) == 0:
         print("✓ Results match reference")
     else:
-        print(f"✗ {len(mismatches)} mismatches found in {result_csv}")
-        print(mismatches.head(10).to_string())
+        ties = mismatches[
+            (mismatches["distance_x"] - mismatches["distance_y"]).abs() < 1e-6
+        ]
+        real = mismatches.drop(ties.index)
+        if len(real) == 0:
+            print(f"✓ Results match reference ({len(ties)} tie-breaking differences)")
+        else:
+            print(f"✗ {len(real)} mismatches found in {result_csv} ({len(ties)} tie-breaking)")
+            print(real.head(10).to_string())
     return mismatches
 
 
@@ -223,7 +230,7 @@ SOLUTION_NAMES = [
 ]
 
 
-def run_scenario(scenario, solutions=None):
+def run_scenario(scenario, solutions=None, skip_reference=False):
     uprn_table = scenario["uprn_table"]
     codepoint_table = scenario["codepoint_table"]
     print(f"\n{'=' * 60}")
@@ -241,11 +248,14 @@ def run_scenario(scenario, solutions=None):
     _run = lambda name: solutions is None or name in solutions
 
     if reference_csv:
-        print("--- Rust tree (generating reference) ---")
-        results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
-        if results:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
+        if skip_reference and os.path.exists(reference_csv):
+            print(f"--- Skipping reference generation ({reference_csv} exists) ---")
+        else:
+            print("--- Rust tree (generating reference) ---")
+            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
+            if results:
+                for k, v in results.items():
+                    record_timing(dataset, k, v)
         reference = pd.read_csv(reference_csv)
     else:
         print("--- SQL distinct ---")

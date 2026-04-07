@@ -70,7 +70,8 @@ fn nearest_neighbour2(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Po
             if min_dist > MAX_DISTANCE { return None; }
             let mut candidates: Vec<&String> = reverse[&[first.x().to_bits(), first.y().to_bits()]].clone();
             for pt in nearest_iter {
-                if point.euclidean_distance(pt) > min_dist {
+                let d = point.euclidean_distance(pt);
+                if d - min_dist > 1e-9 {
                     break;
                 }
                 candidates.extend(&reverse[&[pt.x().to_bits(), pt.y().to_bits()]]);
