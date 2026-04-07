@@ -1,3 +1,4 @@
+import csv
 import os
 import re
 import subprocess
@@ -98,11 +99,56 @@ def _env_args(uprn_table, codepoint_table):
     return ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
 
 
-def run_kotlin(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
-    """Run the Kotlin KNN implementation inside Docker and return a dict of test name to elapsed seconds."""
-    name = f"knn_kotlin_{uuid.uuid4().hex[:8]}"
+_COMPILED_LANGS = {
+    "kotlin": {
+        "service": "kotlin",
+        "cmd": lambda mode: ["mvn", "compile", "exec:java", f"-Dexec.args={mode}"],
+        "timings": "kotlin/timings.csv",
+        "brute_csv": "kotlin/kotlin_all_vs_all.csv",
+        "tree_csv": "kotlin/kotlin_tree.csv",
+        "label": "Kotlin",
+    },
+    "scala": {
+        "service": "scala",
+        "cmd": lambda mode: ["sbt", f"run {mode}"],
+        "timings": "scala/timings.csv",
+        "brute_csv": "scala/scala_all_vs_all.csv",
+        "tree_csv": "scala/scala_tree.csv",
+        "label": "Scala",
+    },
+    "rust": {
+        "service": "rust",
+        "cmd": lambda mode: ["cargo", "run", "--release", "--", mode],
+        "timings": "rust/timings.csv",
+        "brute_csv": "rust/rust_all_vs_all.csv",
+        "tree_csv": "rust/rust_tree.csv",
+        "label": "Rust",
+    },
+    "csharp": {
+        "service": "csharp",
+        "cmd": lambda mode: ["dotnet", "run", "--project", "csharp/knn_csharp.csproj", "--", mode],
+        "timings": "csharp/timings.csv",
+        "brute_csv": "csharp_all_vs_all.csv",
+        "tree_csv": "csharp_tree.csv",
+        "label": "C#",
+    },
+    "go": {
+        "service": "go",
+        "cmd": lambda mode: ["go", "run", ".", mode],
+        "timings": "go/timings.csv",
+        "brute_csv": "go/go_all_vs_all.csv",
+        "tree_csv": "go/go_tree.csv",
+        "label": "Go",
+    },
+}
+
+
+def _run_compiled(lang, timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
+    """Run a compiled-language KNN implementation inside Docker."""
+    cfg = _COMPILED_LANGS[lang]
+    name = f"knn_{lang}_{uuid.uuid4().hex[:8]}"
     returncode, stdout, stderr = _docker_compose_run(
-        "kotlin", name, ["mvn", "compile", "exec:java", f"-Dexec.args={mode}"],
+        cfg["service"], name, cfg["cmd"](mode),
         timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
     )
     if returncode is None:
@@ -111,84 +157,24 @@ def run_kotlin(timeout=None, uprn_table=None, codepoint_table=None, mode="both")
     if returncode != 0:
         print(f"FAILED (exit code {returncode})\n{stderr}")
         return None
-    return pd.read_csv("kotlin/timings.csv").set_index("test")["elapsed_s"].to_dict()
-
-
-def run_scala(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
-    """Run the Scala sbt project inside Docker and return a dict of test name to elapsed seconds."""
-    name = f"knn_scala_{uuid.uuid4().hex[:8]}"
-    returncode, stdout, stderr = _docker_compose_run(
-        "scala", name, ["sbt", f"run {mode}"],
-        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
-    )
-    if returncode is None:
-        print(f"TIMEOUT after {timeout}s")
-        return None
-    if returncode != 0:
-        print(f"FAILED (exit code {returncode})\n{stderr}")
-        return None
-    return pd.read_csv("scala/timings.csv").set_index("test")["elapsed_s"].to_dict()
-
-
-def run_rust(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
-    """Run the Rust project inside Docker and return a dict of test name to elapsed seconds."""
-    name = f"knn_rust_{uuid.uuid4().hex[:8]}"
-    returncode, stdout, stderr = _docker_compose_run(
-        "rust", name, ["cargo", "run", "--release", "--", mode],
-        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
-    )
-    if returncode is None:
-        print(f"TIMEOUT after {timeout}s")
-        return None
-    if returncode != 0:
-        print(f"FAILED (exit code {returncode})\n{stderr}")
-        return None
-    return pd.read_csv("rust/timings.csv").set_index("test")["elapsed_s"].to_dict()
-
-
-def run_csharp(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
-    """Run the C# project inside Docker and return a dict of test name to elapsed seconds."""
-    name = f"knn_csharp_{uuid.uuid4().hex[:8]}"
-    returncode, stdout, stderr = _docker_compose_run(
-        "csharp", name, ["dotnet", "run", "--project", "csharp/knn_csharp.csproj", "--", mode],
-        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
-    )
-    if returncode is None:
-        print(f"TIMEOUT after {timeout}s")
-        return None
-    if returncode != 0:
-        print(f"FAILED (exit code {returncode})\n{stderr}")
-        return None
-    return pd.read_csv("csharp/timings.csv").set_index("test")["elapsed_s"].to_dict()
-
-
-def run_go(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
-    """Run the Go project inside Docker and return a dict of test name to elapsed seconds."""
-    name = f"knn_go_{uuid.uuid4().hex[:8]}"
-    returncode, stdout, stderr = _docker_compose_run(
-        "go", name, ["go", "run", ".", mode],
-        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
-    )
-    if returncode is None:
-        print(f"TIMEOUT after {timeout}s")
-        return None
-    if returncode != 0:
-        print(f"FAILED (exit code {returncode})\n{stderr}")
-        return None
-    return pd.read_csv("go/timings.csv").set_index("test")["elapsed_s"].to_dict()
+    return pd.read_csv(cfg["timings"]).set_index("test")["elapsed_s"].to_dict()
 
 
 def record_timing(dataset, test, elapsed_s):
     """Append one timing row to baselines.csv and print it."""
     print(f"  {test}: {elapsed_s:.3f}s")
     header = not os.path.exists("baselines.csv")
-    pd.DataFrame([{"dataset": dataset, "test": test, "elapsed_s": elapsed_s}]).to_csv(
-        "baselines.csv", mode="a", index=False, header=header
-    )
+    with open("baselines.csv", "a", newline="") as f:
+        writer = csv.writer(f)
+        if header:
+            writer.writerow(["dataset", "test", "elapsed_s"])
+        writer.writerow([dataset, test, elapsed_s])
 
 
-def check(result_csv, ref):
+def check(result_csv, ref, lowercase_columns=False):
     knn = pd.read_csv(result_csv)
+    if lowercase_columns:
+        knn = knn.rename(columns=str.lower)
     merged = pd.merge(ref, knn, how="outer", on="origin")
     mismatches = merged[merged["destination_x"] != merged["destination_y"]]
     if len(mismatches) == 0:
@@ -255,7 +241,7 @@ def run_scenario(scenario, solutions=None, skip_reference=False):
             print(f"--- Skipping reference generation ({reference_csv} exists) ---")
         else:
             print("--- Rust tree (generating reference) ---")
-            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
+            results = _run_compiled("rust", timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
             if results:
                 for k, v in results.items():
                     record_timing(dataset, k, v)
@@ -357,91 +343,24 @@ def run_scenario(scenario, solutions=None, skip_reference=False):
             record_timing(dataset, "Apache Sedona st_knn", elapsed)
             check("python/sedona_knn/result.csv", reference)
 
-    if _run("kotlin_brute"):
-        print("--- Kotlin brute ---")
-        results = run_kotlin(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("kotlin/kotlin_all_vs_all.csv", reference)
-
-    if _run("kotlin_tree"):
-        print("--- Kotlin tree ---")
-        results = run_kotlin(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("kotlin/kotlin_tree.csv", reference)
-
-    if _run("scala_brute"):
-        print("--- Scala brute ---")
-        results = run_scala(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("scala/scala_all_vs_all.csv", reference)
-
-    if _run("scala_tree"):
-        print("--- Scala tree ---")
-        results = run_scala(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("scala/scala_tree.csv", reference)
-
-    if _run("rust_brute"):
-        if not reference_csv:
-            print("--- Rust brute ---")
-            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
+    for lang, cfg in _COMPILED_LANGS.items():
+        for mode, csv_key in [("brute", "brute_csv"), ("tree", "tree_csv")]:
+            solution_name = f"{lang}_{mode}"
+            if not _run(solution_name):
+                continue
+            # Rust is pre-run as reference for the large scenario
+            if lang == "rust" and reference_csv:
+                check(cfg[csv_key], reference)
+                continue
+            print(f"--- {cfg['label']} {mode} ---")
+            results = _run_compiled(
+                lang, timeout=timeout, uprn_table=uprn_table,
+                codepoint_table=codepoint_table, mode=mode,
+            )
             if results is not None:
                 for k, v in results.items():
                     record_timing(dataset, k, v)
-                check("rust/rust_all_vs_all.csv", reference)
-        else:
-            check("rust/rust_all_vs_all.csv", reference)
-
-    if _run("rust_tree"):
-        if not reference_csv:
-            print("--- Rust tree ---")
-            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
-            if results is not None:
-                for k, v in results.items():
-                    record_timing(dataset, k, v)
-                check("rust/rust_tree.csv", reference)
-        else:
-            check("rust/rust_tree.csv", reference)
-
-    if _run("csharp_brute"):
-        print("--- C# brute ---")
-        results = run_csharp(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("csharp_all_vs_all.csv", reference)
-
-    if _run("csharp_tree"):
-        print("--- C# tree ---")
-        results = run_csharp(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("csharp_tree.csv", reference)
-
-    if _run("go_brute"):
-        print("--- Go brute ---")
-        results = run_go(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("go/go_all_vs_all.csv", reference)
-
-    if _run("go_tree"):
-        print("--- Go tree ---")
-        results = run_go(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
-        if results is not None:
-            for k, v in results.items():
-                record_timing(dataset, k, v)
-            check("go/go_tree.csv", reference)
+                check(cfg[csv_key], reference)
 
     if _run("duckdb"):
         print("--- DuckDB ---")
@@ -496,7 +415,7 @@ def make_plot(baselines, filename="results.png"):
     fig.suptitle("KNN benchmark — time by method (lower is better)", fontsize=13)
     plt.tight_layout()
     plt.savefig(filename, dpi=150)
-    plt.show()
+    plt.close()
     print(f"Saved plot: {filename}")
 
 
@@ -512,11 +431,13 @@ def update_readme(baselines):
         sections.append(f"## Results — {dataset}\n\n{df_md.to_markdown(index=False)}")
 
     new_section = f"{marker_start}\n" + "\n\n".join(sections) + f"\n{marker_end}"
-    readme = open("README.md").read()
+    with open("README.md") as f:
+        readme = f.read()
     if marker_start in readme:
         readme = re.sub(
             f"{marker_start}.*?{marker_end}", new_section, readme, flags=re.DOTALL
         )
     else:
         readme = readme.rstrip() + "\n\n" + new_section + "\n"
-    open("README.md", "w").write(readme)
+    with open("README.md", "w") as f:
+        f.write(readme)

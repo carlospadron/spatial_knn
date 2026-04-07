@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 import pandas as pd
 
@@ -64,20 +65,15 @@ def main():
             print(f"SKIPPED (file not found): {cloud_csv}")
 
     if os.path.exists("snowflake_result.csv"):
-        knn = pd.read_csv("snowflake_result.csv").rename(columns=lambda x: x.lower())
-        merged = pd.merge(reference, knn, how="outer", on="origin")
-        print(merged[merged["destination_x"] != merged["destination_y"]])
+        check("snowflake_result.csv", reference, lowercase_columns=True)
     else:
         print("SKIPPED (file not found): snowflake_result.csv")
 
-    # update filename to match the actual Databricks output CSV
-    databricks_csv = "part-00000-tid-83222403381116274-4d1c858d-cce3-41a1-a392-7cb7afb59909-633-1-c000.csv"
-    if os.path.exists(databricks_csv):
-        knn = pd.read_csv(databricks_csv)
-        merged = pd.merge(reference, knn, how="outer", on="origin")
-        print(merged[merged["destination_x"] != merged["destination_y"]])
+    databricks_csvs = glob.glob("part-*.csv")
+    if databricks_csvs:
+        check(databricks_csvs[0], reference)
     else:
-        print(f"SKIPPED (file not found): {databricks_csv}")
+        print("SKIPPED (file not found): part-*.csv (Databricks)")
 
     # Load baselines and keep the best (minimum) elapsed_s per (dataset, test)
     baselines = (

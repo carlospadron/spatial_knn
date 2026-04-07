@@ -1,19 +1,15 @@
-import argparse
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import duckdb
 import pandas as pd
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--uprn-table", default="os.open_uprn_white_horse")
-parser.add_argument("--codepoint-table", default="os.code_point_open_white_horse")
-args = parser.parse_args()
+from knn_common import get_db_params, get_parser
 
-user = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST", "localhost")
-port = os.getenv("DB_PORT", "5432")
-database = os.getenv("DB_NAME", "gis")
+args = get_parser().parse_args()
+db = get_db_params()
 uprn_table = args.uprn_table
 codepoint_table = args.codepoint_table
 
@@ -21,8 +17,8 @@ con = duckdb.connect()
 con.execute("INSTALL spatial; LOAD spatial;")
 con.execute("INSTALL postgres; LOAD postgres;")
 con.execute(
-    f"ATTACH 'host={host} port={port} dbname={database} user={user} password={password}' "
-    "AS pg (TYPE postgres, READ_ONLY);"
+    "ATTACH 'host={host} port={port} dbname={database} user={user} password={password}' "
+    "AS pg (TYPE postgres, READ_ONLY);".format(**db)
 )
 
 # Load into local DuckDB tables (outside timing, consistent with other scripts)

@@ -1,13 +1,13 @@
-import argparse
-import os
+import sys
 from pathlib import Path
 
-import pandas as pd
-from sqlalchemy import create_engine
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--uprn-table", default="os.open_uprn_white_horse")
-parser.add_argument("--codepoint-table", default="os.code_point_open_white_horse")
+import pandas as pd
+
+from knn_common import get_engine, get_parser
+
+parser = get_parser()
 parser.add_argument(
     "--statement-timeout",
     type=int,
@@ -15,15 +15,9 @@ parser.add_argument(
     help="PostgreSQL statement_timeout in milliseconds (0 = no limit)",
 )
 args = parser.parse_args()
-
-user = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST", "localhost")
-port = os.getenv("DB_PORT", "5432")
-database = os.getenv("DB_NAME", "gis")
 uprn_table = args.uprn_table
 codepoint_table = args.codepoint_table
-engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
+engine = get_engine()
 
 t1 = pd.Timestamp.now()
 
