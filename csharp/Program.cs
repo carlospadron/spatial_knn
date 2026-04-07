@@ -4,6 +4,8 @@ using NetTopologySuite.Index.Strtree;
 using NetTopologySuite.IO;
 using Npgsql;
 
+var mode = args.Length > 0 ? args[0] : "both";
+
 var user = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
 var pass = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "";
 var host = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
@@ -18,24 +20,27 @@ var sql2 = $"SELECT postcode id, ST_AsText(geom) geom FROM {codepointTable}";
 var uprn = db.GetTable(sql1);
 var codepoint = db.GetTable(sql2);
 
-var sw = Stopwatch.StartNew();
-var out1 = NearestNeighbour(uprn, codepoint); // ~22sec
-sw.Stop();
-SaveCsv(out1, "csharp_all_vs_all.csv");
-var elapsed1 = sw.Elapsed.TotalSeconds;
+var timingsLines = new List<string> { "test,elapsed_s" };
 
-sw.Restart();
-var out2 = NearestNeighbour2(uprn, codepoint); // ~3.6sec
-sw.Stop();
-SaveCsv(out2, "csharp_tree.csv");
-var elapsed2 = sw.Elapsed.TotalSeconds;
-
-File.WriteAllLines("csharp/timings.csv", new[]
+if (mode is "brute" or "both")
 {
-    "test,elapsed_s",
-    $"C# all vs all,{elapsed1}",
-    $"C# strtree,{elapsed2}"
-});
+    var sw = Stopwatch.StartNew();
+    var out1 = NearestNeighbour(uprn, codepoint);
+    sw.Stop();
+    SaveCsv(out1, "csharp_all_vs_all.csv");
+    timingsLines.Add($"C# all vs all,{sw.Elapsed.TotalSeconds}");
+}
+
+if (mode is "tree" or "both")
+{
+    var sw = Stopwatch.StartNew();
+    var out2 = NearestNeighbour2(uprn, codepoint);
+    sw.Stop();
+    SaveCsv(out2, "csharp_tree.csv");
+    timingsLines.Add($"C# strtree,{sw.Elapsed.TotalSeconds}");
+}
+
+File.WriteAllLines("csharp/timings.csv", timingsLines);
 
 static Dictionary<string, (string, double)> NearestNeighbour(
     Dictionary<string, Geometry> geomA,

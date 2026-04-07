@@ -31,7 +31,7 @@ def nearest_neighbour(geoma, geomb):
     geomb_list = geomb.to_list()
     tree = STRtree(geomb_list)
     nearest = [
-        [i[0], tree.query_nearest(i[1], return_distance=True)] for i in geoma.items()
+        [i[0], tree.query_nearest(i[1], max_distance=5000, return_distance=True)] for i in geoma.items()
     ]
     nearest = [[i[0], j, i[1][1][n]] for i in nearest for n, j in enumerate(i[1][0])]
     return pd.DataFrame(nearest, columns=["origin", "destination", "distance"])

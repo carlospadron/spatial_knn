@@ -37,6 +37,7 @@ class DbManager(
         return geom.toMap()
     }
 }
+
 fun nearestNeighbour(geoma: Map<String, Geometry>, geomb: Map<String, Geometry>): Map<String, Pair<String?, Double>> {
     //for each geometry a get entry of b with the lowest distance, then compute dist to save map
     val dist: Map<String, Pair<String?, Double>> = geoma.map {
@@ -77,7 +78,9 @@ fun saveCsv(table: Map<String, Pair<String?, Double>>, name: String) {
     writer.flush()
 }
 
-fun main() {
+fun main(args: Array<String>) {
+    val mode = args.firstOrNull() ?: "both"
+
     val user = System.getenv("DB_USER") ?: "postgres"
     val pass = System.getenv("DB_PASSWORD") ?: ""
     val host = System.getenv("DB_HOST") ?: "localhost"
@@ -93,22 +96,27 @@ fun main() {
     val uprn = db.getTable(sql1)
     val codepoint = db.getTable(sql2)
 
-    val startTime = System.currentTimeMillis()
-    val out1 = nearestNeighbour(uprn, codepoint)
-    val endTime = System.currentTimeMillis()
-    saveCsv(out1, "kotlin_all_vs_all.csv")
-
-    val startTime2 = System.currentTimeMillis()
-    val out2 = nearestNeighbour2(uprn, codepoint)
-    val endTime2 = System.currentTimeMillis()
-    saveCsv(out2, "kotlin_tree.csv")
-
     val timings = File("timings.csv").bufferedWriter()
     timings.write("test,elapsed_s")
     timings.newLine()
-    timings.write("Kotlin all vs all,${(endTime - startTime) / 1000.0}")
-    timings.newLine()
-    timings.write("Kotlin strtree,${(endTime2 - startTime2) / 1000.0}")
-    timings.newLine()
+
+    if (mode == "brute" || mode == "both") {
+        val startTime = System.currentTimeMillis()
+        val out1 = nearestNeighbour(uprn, codepoint)
+        val endTime = System.currentTimeMillis()
+        saveCsv(out1, "kotlin_all_vs_all.csv")
+        timings.write("Kotlin all vs all,${(endTime - startTime) / 1000.0}")
+        timings.newLine()
+    }
+
+    if (mode == "tree" || mode == "both") {
+        val startTime = System.currentTimeMillis()
+        val out2 = nearestNeighbour2(uprn, codepoint)
+        val endTime = System.currentTimeMillis()
+        saveCsv(out2, "kotlin_tree.csv")
+        timings.write("Kotlin strtree,${(endTime - startTime) / 1000.0}")
+        timings.newLine()
+    }
+
     timings.flush()
 }

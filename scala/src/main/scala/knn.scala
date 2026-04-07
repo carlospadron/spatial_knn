@@ -71,7 +71,9 @@ def saveCsv(table: List[(String, String, Double)], name: String) =
   )
   writer.flush()
 
-@main def main() =
+@main def main(args: String*) =
+  val mode = args.headOption.getOrElse("both")
+
   val user   = Option(System.getenv("DB_USER")).getOrElse("postgres")
   val pass   = Option(System.getenv("DB_PASSWORD")).getOrElse("")
   val host   = Option(System.getenv("DB_HOST")).getOrElse("localhost")
@@ -87,21 +89,24 @@ def saveCsv(table: List[(String, String, Double)], name: String) =
   val uprn      = db.getTable(sql1)
   val codepoint = db.getTable(sql2)
 
-  val startTime = System.currentTimeMillis()
-  val out1 = nearestNeighbour(uprn, codepoint)
-  val endTime = System.currentTimeMillis()
-  saveCsv(out1, "scala_all_vs_all.csv")
-
-  val startTime2 = System.currentTimeMillis()
-  val out2 = nearestNeighbour2(uprn, codepoint)
-  val endTime2 = System.currentTimeMillis()
-  saveCsv(out2, "scala_tree.csv")
-
   val timingsWriter = BufferedWriter(FileWriter(File("timings.csv")))
   timingsWriter.write("test,elapsed_s")
   timingsWriter.newLine()
-  timingsWriter.write(s"Scala all vs all,${(endTime - startTime) / 1000.0}")
-  timingsWriter.newLine()
-  timingsWriter.write(s"Scala strtree,${(endTime2 - startTime2) / 1000.0}")
-  timingsWriter.newLine()
+
+  if mode == "brute" || mode == "both" then
+    val startTime = System.currentTimeMillis()
+    val out1 = nearestNeighbour(uprn, codepoint)
+    val endTime = System.currentTimeMillis()
+    saveCsv(out1, "scala_all_vs_all.csv")
+    timingsWriter.write(s"Scala all vs all,${(endTime - startTime) / 1000.0}")
+    timingsWriter.newLine()
+
+  if mode == "tree" || mode == "both" then
+    val startTime = System.currentTimeMillis()
+    val out2 = nearestNeighbour2(uprn, codepoint)
+    val endTime = System.currentTimeMillis()
+    saveCsv(out2, "scala_tree.csv")
+    timingsWriter.write(s"Scala strtree,${(endTime - startTime) / 1000.0}")
+    timingsWriter.newLine()
+
   timingsWriter.flush()

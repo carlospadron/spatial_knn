@@ -95,11 +95,11 @@ def _env_args(uprn_table, codepoint_table):
     return ["-e", f"UPRN_TABLE={uprn_table}", "-e", f"CODEPOINT_TABLE={codepoint_table}"]
 
 
-def run_kotlin(timeout=None, uprn_table=None, codepoint_table=None):
+def run_kotlin(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
     """Run the Kotlin KNN implementation inside Docker and return a dict of test name to elapsed seconds."""
     name = f"knn_kotlin_{uuid.uuid4().hex[:8]}"
     returncode, stdout, stderr = _docker_compose_run(
-        "kotlin", name, ["mvn", "compile", "exec:java"],
+        "kotlin", name, ["mvn", "compile", "exec:java", f"-Dexec.args={mode}"],
         timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
     )
     if returncode is None:
@@ -111,11 +111,11 @@ def run_kotlin(timeout=None, uprn_table=None, codepoint_table=None):
     return pd.read_csv("kotlin/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_scala(timeout=None, uprn_table=None, codepoint_table=None):
+def run_scala(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
     """Run the Scala sbt project inside Docker and return a dict of test name to elapsed seconds."""
     name = f"knn_scala_{uuid.uuid4().hex[:8]}"
     returncode, stdout, stderr = _docker_compose_run(
-        "scala", name, ["sbt", "run"],
+        "scala", name, ["sbt", f"run {mode}"],
         timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
     )
     if returncode is None:
@@ -127,11 +127,11 @@ def run_scala(timeout=None, uprn_table=None, codepoint_table=None):
     return pd.read_csv("scala/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_rust(timeout=None, uprn_table=None, codepoint_table=None):
+def run_rust(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
     """Run the Rust project inside Docker and return a dict of test name to elapsed seconds."""
     name = f"knn_rust_{uuid.uuid4().hex[:8]}"
     returncode, stdout, stderr = _docker_compose_run(
-        "rust", name, ["cargo", "run", "--release"],
+        "rust", name, ["cargo", "run", "--release", "--", mode],
         timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
     )
     if returncode is None:
@@ -143,11 +143,11 @@ def run_rust(timeout=None, uprn_table=None, codepoint_table=None):
     return pd.read_csv("rust/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_csharp(timeout=None, uprn_table=None, codepoint_table=None):
+def run_csharp(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
     """Run the C# project inside Docker and return a dict of test name to elapsed seconds."""
     name = f"knn_csharp_{uuid.uuid4().hex[:8]}"
     returncode, stdout, stderr = _docker_compose_run(
-        "csharp", name, ["dotnet", "run", "--project", "csharp/knn_csharp.csproj"],
+        "csharp", name, ["dotnet", "run", "--project", "csharp/knn_csharp.csproj", "--", mode],
         timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
     )
     if returncode is None:
@@ -159,11 +159,11 @@ def run_csharp(timeout=None, uprn_table=None, codepoint_table=None):
     return pd.read_csv("csharp/timings.csv").set_index("test")["elapsed_s"].to_dict()
 
 
-def run_go(timeout=None, uprn_table=None, codepoint_table=None):
+def run_go(timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
     """Run the Go project inside Docker and return a dict of test name to elapsed seconds."""
     name = f"knn_go_{uuid.uuid4().hex[:8]}"
     returncode, stdout, stderr = _docker_compose_run(
-        "go", name, ["go", "run", "."],
+        "go", name, ["go", "run", ".", mode],
         timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
     )
     if returncode is None:
@@ -217,7 +217,9 @@ SCENARIOS = [
 SOLUTION_NAMES = [
     "sql_distinct", "sql_lateral", "geopandas", "shapely_all_vs_all", "shapely_strtree",
     "sklearn", "sedona_partial", "sedona_pure", "sedona_knn",
-    "kotlin", "scala", "rust", "csharp", "go", "duckdb", "sedonadb",
+    "kotlin_brute", "kotlin_tree", "scala_brute", "scala_tree",
+    "rust_brute", "rust_tree", "csharp_brute", "csharp_tree",
+    "go_brute", "go_tree", "duckdb", "sedonadb",
 ]
 
 
@@ -239,8 +241,8 @@ def run_scenario(scenario, solutions=None):
     _run = lambda name: solutions is None or name in solutions
 
     if reference_csv:
-        print("--- Rust (generating reference) ---")
-        results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
+        print("--- Rust tree (generating reference) ---")
+        results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
         if results:
             for k, v in results.items():
                 record_timing(dataset, k, v)
@@ -342,53 +344,90 @@ def run_scenario(scenario, solutions=None):
             record_timing(dataset, "Apache Sedona st_knn", elapsed)
             check("python/sedona_knn/result.csv", reference)
 
-    if _run("kotlin"):
-        print("--- Kotlin ---")
-        results = run_kotlin(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
+    if _run("kotlin_brute"):
+        print("--- Kotlin brute ---")
+        results = run_kotlin(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
             check("kotlin/kotlin_all_vs_all.csv", reference)
+
+    if _run("kotlin_tree"):
+        print("--- Kotlin tree ---")
+        results = run_kotlin(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
             check("kotlin/kotlin_tree.csv", reference)
 
-    if _run("scala"):
-        print("--- Scala ---")
-        results = run_scala(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
+    if _run("scala_brute"):
+        print("--- Scala brute ---")
+        results = run_scala(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
             check("scala/scala_all_vs_all.csv", reference)
+
+    if _run("scala_tree"):
+        print("--- Scala tree ---")
+        results = run_scala(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
             check("scala/scala_tree.csv", reference)
 
-    if _run("rust"):
+    if _run("rust_brute"):
         if not reference_csv:
-            print("--- Rust ---")
-            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
+            print("--- Rust brute ---")
+            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
             if results is not None:
                 for k, v in results.items():
                     record_timing(dataset, k, v)
                 check("rust/rust_all_vs_all.csv", reference)
-                check("rust/rust_tree.csv", reference)
         else:
             check("rust/rust_all_vs_all.csv", reference)
+
+    if _run("rust_tree"):
+        if not reference_csv:
+            print("--- Rust tree ---")
+            results = run_rust(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
+            if results is not None:
+                for k, v in results.items():
+                    record_timing(dataset, k, v)
+                check("rust/rust_tree.csv", reference)
+        else:
             check("rust/rust_tree.csv", reference)
 
-    if _run("csharp"):
-        print("--- C# ---")
-        results = run_csharp(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
+    if _run("csharp_brute"):
+        print("--- C# brute ---")
+        results = run_csharp(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
             check("csharp_all_vs_all.csv", reference)
+
+    if _run("csharp_tree"):
+        print("--- C# tree ---")
+        results = run_csharp(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
             check("csharp_tree.csv", reference)
 
-    if _run("go"):
-        print("--- Go ---")
-        results = run_go(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table)
+    if _run("go_brute"):
+        print("--- Go brute ---")
+        results = run_go(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="brute")
         if results is not None:
             for k, v in results.items():
                 record_timing(dataset, k, v)
             check("go/go_all_vs_all.csv", reference)
+
+    if _run("go_tree"):
+        print("--- Go tree ---")
+        results = run_go(timeout=timeout, uprn_table=uprn_table, codepoint_table=codepoint_table, mode="tree")
+        if results is not None:
+            for k, v in results.items():
+                record_timing(dataset, k, v)
             check("go/go_tree.csv", reference)
 
     if _run("duckdb"):
