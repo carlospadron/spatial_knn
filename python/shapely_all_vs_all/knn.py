@@ -27,28 +27,24 @@ codepoint = gpd.read_postgis(
 
 
 def nearest_neighbour(geoma, geomb, maxdist):
-    combinations = [
-        geomb[geomb.intersects(i.buffer(maxdist))].distance(i).idxmin() for i in geoma
-    ]
-    return pd.DataFrame(
-        {
-            "origin": [i[0] for i in geoma.items()],
-            "destination": combinations,
-            "distance": [
-                i.distance(geomb[combinations[n]]) for n, i in enumerate(geoma)
-            ],
-        }
-    )
+    results = []
+    for idx, geom in geoma.items():
+        nearby = geomb[geomb.intersects(geom.buffer(maxdist))].distance(geom)
+        if nearby.empty:
+            continue
+        best = nearby.idxmin()
+        results.append((idx, best, nearby[best]))
+    return pd.DataFrame(results, columns=["origin_idx", "destination", "distance"])
 
 
 t1 = pd.Timestamp.now()
 
 knn = nearest_neighbour(uprn.geometry, codepoint.sort_values("postcode").geometry, 5000)
-knn = uprn[["uprn"]].assign(
-    destination=codepoint.iloc[knn["destination"]]["postcode"].to_list(),
-    distance=knn.distance.to_list(),
-)
-knn.columns = ["origin", "destination", "distance"]
+knn = pd.DataFrame({
+    "origin": uprn.iloc[knn["origin_idx"]]["uprn"].to_list(),
+    "destination": codepoint.iloc[knn["destination"]]["postcode"].to_list(),
+    "distance": knn["distance"].to_list(),
+})
 
 t2 = pd.Timestamp.now()
 
