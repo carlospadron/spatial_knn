@@ -43,6 +43,8 @@ knn = sedona.sql("""
             codepoint B
         ON
             ST_KNN(A.geom, B.geom, 10, FALSE)
+        WHERE
+            ST_Distance(A.geom, B.geom) <= 5000
         ORDER BY
             A.uprn,
             ST_Distance(A.geom, B.geom) ASC,

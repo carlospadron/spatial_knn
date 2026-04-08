@@ -41,6 +41,7 @@ knn["distance"] = knn["distance"].round(2)
 knn = knn.sort_values(["origin", "distance", "destination"]).drop_duplicates(
     subset="origin"
 )
+knn = knn[knn["distance"] <= 5000]
 
 t2 = pd.Timestamp.now()
 

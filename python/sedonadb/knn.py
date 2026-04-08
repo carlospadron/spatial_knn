@@ -45,6 +45,7 @@ knn = sd.sql("""
             ) AS rn
         FROM uprn u
         JOIN codepoint c ON ST_KNN(u.geom, c.geom, 10, FALSE)
+        WHERE ST_Distance(u.geom, c.geom) <= 5000
     )
     SELECT origin, destination, distance FROM knn WHERE rn = 1
 """).to_pandas()

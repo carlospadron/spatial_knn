@@ -6,6 +6,9 @@ import java.io.{BufferedWriter, File, FileWriter}
 import java.sql.{DriverManager, SQLException}
 import java.util.Locale
 import scala.collection.immutable.HashMap
+
+val MaxDistance = 5000.0
+
 class DbManager(
                  user: String,
                  pass: String,
@@ -35,10 +38,11 @@ class DbManager(
 def nearestNeighbour(geoma: Map[String, Geometry], geomb: Map[String, Geometry]) =
   //for each geometry a get entry of b with the lowest distance, then compute dist to save map
   geoma
-    .map(
+    .flatMap(
       x =>
         val knn = geomb.minBy(b => (x._2.distance(b._2), b._1))
-        (x._1 , knn._1, x._2.distance(knn._2))
+        val d = x._2.distance(knn._2)
+        if d > MaxDistance then None else Some((x._1, knn._1, d))
     )
     .toList
 
@@ -59,8 +63,9 @@ def nearestNeighbour2(geoma: Map[String, Geometry], geomb: Map[String, Geometry]
         else if a._2 < b._2 then a else b
       }
 
-      (x._1, knn._1, knn._2)
+      if knn._2 > MaxDistance then None else Some((x._1, knn._1, knn._2))
     )
+    .flatten
     .toList
 
 def saveCsv(table: List[(String, String, Double)], name: String) =

@@ -4,6 +4,8 @@ using NetTopologySuite.Index.Strtree;
 using NetTopologySuite.IO;
 using Npgsql;
 
+const double MaxDistance = 5000.0;
+
 var mode = args.Length > 0 ? args[0] : "both";
 
 var user = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
@@ -47,13 +49,15 @@ static Dictionary<string, (string, double)> NearestNeighbour(
     Dictionary<string, Geometry> geomB)
 {
     // for each geometry a get entry of b with the lowest distance, then compute dist to save map
-    return geomA.ToDictionary(
-        a => a.Key,
-        a =>
-        {
-            var knn = geomB.MinBy(b => (a.Value.Distance(b.Value), b.Key))!;
-            return (knn.Key, a.Value.Distance(knn.Value));
-        });
+    var result = new Dictionary<string, (string, double)>();
+    foreach (var a in geomA)
+    {
+        var knn = geomB.MinBy(b => (a.Value.Distance(b.Value), b.Key))!;
+        var dist = a.Value.Distance(knn.Value);
+        if (dist <= MaxDistance)
+            result[a.Key] = (knn.Key, dist);
+    }
+    return result;
 }
 
 static Dictionary<string, (string, double)> NearestNeighbour2(
@@ -69,9 +73,7 @@ static Dictionary<string, (string, double)> NearestNeighbour2(
     foreach (var (key, g) in geomB)
         geomBReverse[g] = key;
 
-    return geomA.ToDictionary(
-        a => a.Key,
-        a =>
+    return geomA.Select(a =>
         {
             var knnGeom = tree.NearestNeighbour(a.Value.EnvelopeInternal, a.Value, new GeometryItemDistance(), 100);
             var knn = knnGeom
@@ -80,8 +82,10 @@ static Dictionary<string, (string, double)> NearestNeighbour2(
                     Math.Abs(cur.Item2 - best.Item2) < 1e-9
                         ? (string.Compare(cur.Item1, best.Item1, StringComparison.Ordinal) < 0 ? cur : best)
                         : (cur.Item2 < best.Item2 ? cur : best));
-            return knn;
-        });
+            return (a.Key, knn);
+        })
+        .Where(x => x.knn.Item2 <= MaxDistance)
+        .ToDictionary(x => x.Key, x => x.knn);
 }
 
 static void SaveCsv(Dictionary<string, (string, double)> table, string name)

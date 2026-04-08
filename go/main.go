@@ -71,8 +71,8 @@ type result struct {
 const maxDistance = 5000.0
 
 func allVsAll(uprn, codepoint []entry) []result {
-	results := make([]result, len(uprn))
-	for i, u := range uprn {
+	var results []result
+	for _, u := range uprn {
 		bestDist := math.Inf(1)
 		bestID := ""
 		for _, c := range codepoint {
@@ -82,7 +82,9 @@ func allVsAll(uprn, codepoint []entry) []result {
 				bestID = c.id
 			}
 		}
-		results[i] = result{u.id, bestID, bestDist}
+		if bestDist <= maxDistance {
+			results = append(results, result{u.id, bestID, bestDist})
+		}
 	}
 	return results
 }

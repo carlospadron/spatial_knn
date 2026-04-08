@@ -7,6 +7,7 @@ import java.util.Locale
 import java.sql.DriverManager
 import java.sql.SQLException
 
+const val MAX_DISTANCE = 5000.0
 
 class DbManager(
     user: String,
@@ -40,10 +41,11 @@ class DbManager(
 
 fun nearestNeighbour(geoma: Map<String, Geometry>, geomb: Map<String, Geometry>): Map<String, Pair<String?, Double>> {
     //for each geometry a get entry of b with the lowest distance, then compute dist to save map
-    val dist: Map<String, Pair<String?, Double>> = geoma.map {
+    val dist: Map<String, Pair<String?, Double>> = geoma.mapNotNull {
             a ->
                 val knn = geomb.minWithOrNull(compareBy({ b -> a.value.distance(b.value)},{ b -> b.key}))
-                a.key to (knn?.key to a.value.distance(knn?.value))
+                val d = a.value.distance(knn?.value)
+                if (d > MAX_DISTANCE) null else a.key to (knn?.key to d)
     }.toMap()
     return dist
 }
@@ -56,7 +58,7 @@ fun nearestNeighbour2(geoma: Map<String, Geometry>, geomb: Map<String, Geometry>
     t.build()
     val geomb2 = geomb.map{ x -> x.value to x.key}.toMap()
 
-    val dist = geoma.map {
+    val dist = geoma.mapNotNull {
             a ->
                 val knnGeom = t.nearestNeighbour(a.value.envelopeInternal, a.value, GeometryItemDistance(), 100).toList() as List<Geometry>
                 val knn = knnGeom.associate { y -> geomb2[y] to a.value.distance(y) }
@@ -64,7 +66,7 @@ fun nearestNeighbour2(geoma: Map<String, Geometry>, geomb: Map<String, Geometry>
                         val diff = x.value - y.value
                         if (kotlin.math.abs(diff) < 1e-9) x.key!!.compareTo(y.key!!) else diff.compareTo(0.0)
                     })
-                a.key to (knn?.key to knn?.value)
+                if (knn != null && knn.value > MAX_DISTANCE) null else a.key to (knn?.key to knn?.value)
     }.toMap() as Map<String, Pair<String?, Double>>
 
     return dist
