@@ -26,6 +26,11 @@ cursor = conn.cursor()
 if args.statement_timeout:
     cursor.execute("SET statement_timeout = %s", (args.statement_timeout,))
 cursor.execute(f"""
+    CREATE INDEX IF NOT EXISTS idx_{codepoint_table.split('.')[-1]}_geom
+    ON {codepoint_table} USING gist (geom);
+""")
+conn.commit()
+cursor.execute(f"""
     DROP TABLE IF EXISTS os.knn_l;
     WITH knn AS (
         SELECT
@@ -36,17 +41,17 @@ cursor.execute(f"""
             {uprn_table} as A
         CROSS JOIN LATERAL (
             SELECT
-                B.postcode,
-                B.geom
+                postcode,
+                geom
             FROM
-                {codepoint_table} as B
-            WHERE
-                ST_DWithin(A.geom, B.geom, 5000)
+                {codepoint_table}
             ORDER BY
-                ST_Distance(A.geom, B.geom) ASC,
-                B.postcode
+                geom <-> A.geom,
+                postcode
             LIMIT 1
         ) B
+        WHERE
+            ST_Distance(A.geom, B.geom) <= 5000
         ORDER BY
             A.uprn
     )
