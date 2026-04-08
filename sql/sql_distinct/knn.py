@@ -26,6 +26,11 @@ cursor = conn.cursor()
 if args.statement_timeout:
     cursor.execute("SET statement_timeout = %s", (args.statement_timeout,))
 cursor.execute(f"""
+    CREATE INDEX IF NOT EXISTS idx_{codepoint_table.split('.')[-1]}_geom
+    ON {codepoint_table} USING gist (geom);
+""")
+conn.commit()
+cursor.execute(f"""
     DROP TABLE IF EXISTS os.knn;
     WITH knn AS (
         SELECT DISTINCT ON (A.uprn)
