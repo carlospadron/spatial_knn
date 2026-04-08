@@ -14,21 +14,17 @@
 # %%
 import argparse
 import glob
-import os
-
 import logging
 
 import duckdb
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+
+from knn_common import get_db_params, get_engine
 
 # %%
-user = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST", "localhost")
-port = os.getenv("DB_PORT", "5432")
-database = os.getenv("DB_NAME", "gis")
-engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
+db = get_db_params()
+engine = get_engine()
 
 PARQUET_PATHS = {
     "uprn_full": "data/os_open_uprn.parquet",
@@ -49,8 +45,8 @@ _log = logging.getLogger(__name__).info
 def _pg_attach(con):
     con.execute("INSTALL postgres; LOAD postgres")
     con.execute(
-        f"ATTACH 'host={host} port={port} dbname={database} user={user} password={password}' "
-        "AS pg (TYPE POSTGRES)"
+        "ATTACH 'host={host} port={port} dbname={database} user={user} password={password}' "
+        "AS pg (TYPE POSTGRES)".format(**db)
     )
 
 
@@ -66,10 +62,11 @@ def create_tables():
     _log("  Done.")
 
 
-def load_uprn_parquet(parquet_path, target_table, index_name):
+def load_uprn_parquet(parquet_path, target_table, index_name, duck_con=None):
     _log(f"Loading {parquet_path} \u2192 {target_table}\u2026")
-    con = duckdb.connect()
-    _pg_attach(con)
+    con = duck_con or duckdb.connect()
+    if not duck_con:
+        _pg_attach(con)
     con.execute(f"""
         CREATE OR REPLACE TABLE pg.public._uprn_stage AS
         SELECT UPRN AS uprn,
@@ -105,10 +102,11 @@ def load_uprn_parquet(parquet_path, target_table, index_name):
     _log(f"  {target_table} loaded ({n:,} rows).")
 
 
-def load_codepoint_parquet(parquet_path, target_table, index_name):
+def load_codepoint_parquet(parquet_path, target_table, index_name, duck_con=None):
     _log(f"Loading {parquet_path} \u2192 {target_table}\u2026")
-    con = duckdb.connect()
-    _pg_attach(con)
+    con = duck_con or duckdb.connect()
+    if not duck_con:
+        _pg_attach(con)
     con.execute(f"""
         CREATE OR REPLACE TABLE pg.public._cp_stage AS
         SELECT postcode, geom_wkb
@@ -141,16 +139,19 @@ def load_codepoint_parquet(parquet_path, target_table, index_name):
 
 def load_all_parquet():
     create_tables()
-    load_uprn_parquet(PARQUET_PATHS["uprn_full"], "os.os_open_uprn", "uprn_full_gis")
+    con = duckdb.connect()
+    _pg_attach(con)
+    load_uprn_parquet(PARQUET_PATHS["uprn_full"], "os.os_open_uprn", "uprn_full_gis", duck_con=con)
     load_codepoint_parquet(
-        PARQUET_PATHS["cp_full"], "os.codepoint_polygons", "cp_full_gis"
+        PARQUET_PATHS["cp_full"], "os.codepoint_polygons", "cp_full_gis", duck_con=con,
     )
     load_uprn_parquet(
-        PARQUET_PATHS["uprn_wh"], "os.open_uprn_white_horse", "uprn_wh_gis"
+        PARQUET_PATHS["uprn_wh"], "os.open_uprn_white_horse", "uprn_wh_gis", duck_con=con,
     )
     load_codepoint_parquet(
-        PARQUET_PATHS["cp_wh"], "os.code_point_open_white_horse", "cp_wh_gis"
+        PARQUET_PATHS["cp_wh"], "os.code_point_open_white_horse", "cp_wh_gis", duck_con=con,
     )
+    con.close()
     _log("All tables loaded from Parquet.")
 
 
@@ -241,20 +242,26 @@ def from_raw():
     """)
     _log(f"  Wrote {PARQUET_PATHS['cp_wh']} ({n_cp_wh:,} rows)")
 
+    # ---- CSV exports for cloud services (from DuckDB before closing) ----
+    _log("Writing CSV exports for cloud services…")
+    con.execute(f"""
+        COPY (SELECT UPRN, X_COORDINATE, Y_COORDINATE, LATITUDE, LONGITUDE,
+                     ST_AsText(geom) AS wkt
+              FROM _uprn WHERE ST_Intersects(geom, (SELECT geom FROM _wh)))
+        TO 'data/open_uprn_white_horse.csv' (HEADER FALSE, DELIMITER '|')
+    """)
+    con.execute(f"""
+        COPY (SELECT postcode, ST_AsText(geom) AS wkt
+              FROM _codepoint WHERE ST_Intersects(geom, (SELECT geom FROM _wh)))
+        TO 'data/code_point_open_white_horse.csv' (HEADER FALSE, DELIMITER '|')
+    """)
+    _log("  Wrote CSV exports")
+
     con.close()
 
     # ---- Load into PostGIS ----
     _log("Loading all Parquet files into PostGIS…")
     load_all_parquet()
-
-    # ---- CSV exports for cloud services ----
-    _log("Writing CSV exports for cloud services…")
-    pd.read_sql(
-        "SELECT *, ST_AsText(geom) wkt FROM os.open_uprn_white_horse", engine
-    ).to_csv("data/open_uprn_white_horse.csv", index=False, header=False, sep="|")
-    pd.read_sql(
-        "SELECT *, ST_AsText(geom) wkt FROM os.code_point_open_white_horse", engine
-    ).to_csv("data/code_point_open_white_horse.csv", index=False, header=False, sep="|")
     _log("Done.")
 
 

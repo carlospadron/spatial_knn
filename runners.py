@@ -14,10 +14,14 @@ _DEFAULT_TIMEOUT = 3600  # 1 hr hard ceiling so nothing hangs forever
 
 
 def _docker_compose_run(service, container_name, cmd_args, timeout=None, extra_docker_args=None):
-    """Run a one-shot docker compose service by name; kill it cleanly on timeout."""
+    """Run a one-shot docker compose service by name; kill it cleanly on timeout.
+
+    Uses --no-deps so that docker compose run does not start/stop the postgres
+    dependency — postgres must already be running (docker compose up -d postgres).
+    """
     effective_timeout = timeout if timeout is not None else _DEFAULT_TIMEOUT
     cmd = [
-        "docker", "compose", "run", "--rm", "-T",
+        "docker", "compose", "run", "--rm", "-T", "--no-deps",
         "--name", container_name,
     ]
     if extra_docker_args:
@@ -219,7 +223,16 @@ SOLUTION_NAMES = [
 ]
 
 
+def _ensure_postgres():
+    """Make sure the postgres service is running (--no-deps needs it pre-started)."""
+    subprocess.run(
+        ["docker", "compose", "up", "-d", "postgres"],
+        capture_output=True,
+    )
+
+
 def run_scenario(scenario, solutions=None, skip_reference=False):
+    _ensure_postgres()
     uprn_table = scenario["uprn_table"]
     codepoint_table = scenario["codepoint_table"]
     print(f"\n{'=' * 60}")
