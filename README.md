@@ -145,7 +145,9 @@ For the large dataset, Rust runs first to generate the reference output (SQL dis
 | test                    | elapsed_s   |
 |:------------------------|:------------|
 | Geopandas sjoin_nearest | 931s        |
-| Rust strtree            | 215s        |
+| Rust strtree            | 220s        |
+| Scala all vs all        | 18s         |
+| Scala strtree           | 3s          |
 <!-- RESULTS_END -->
 
 ![Benchmark results](results.png)

@@ -75,6 +75,7 @@ services:
     env_file: .env
     environment:
       DB_HOST: postgres
+      SBT_OPTS: "-Xmx16g"
     volumes:
       - .:/workspace
       - sbt_cache:/root/.cache

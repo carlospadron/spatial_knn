@@ -150,16 +150,31 @@ _COMPILED_LANGS = {
 def _run_compiled(lang, timeout=None, uprn_table=None, codepoint_table=None, mode="both"):
     """Run a compiled-language KNN implementation inside Docker."""
     cfg = _COMPILED_LANGS[lang]
+    # Remove stale output files so we never read results from a previous run.
+    for key in ("timings", "brute_csv", "tree_csv"):
+        path = cfg.get(key)
+        if path and os.path.exists(path):
+            os.remove(path)
     name = f"knn_{lang}_{uuid.uuid4().hex[:8]}"
+    extra = _env_args(uprn_table, codepoint_table) + ["-e", f"KNN_MODE={mode}"]
     returncode, stdout, stderr = _docker_compose_run(
         cfg["service"], name, cfg["cmd"](mode),
-        timeout=timeout, extra_docker_args=_env_args(uprn_table, codepoint_table),
+        timeout=timeout, extra_docker_args=extra,
     )
     if returncode is None:
         print(f"TIMEOUT after {timeout}s")
         return None
     if returncode != 0:
-        print(f"FAILED (exit code {returncode})\n{stderr}")
+        print(f"FAILED (exit code {returncode})")
+        if stdout.strip():
+            print(stdout[-2000:] if len(stdout) > 2000 else stdout)
+        if stderr.strip():
+            print(stderr[-2000:] if len(stderr) > 2000 else stderr)
+        return None
+    if not os.path.exists(cfg["timings"]):
+        print(f"FAILED (no timings written — program may have crashed)")
+        if stderr.strip():
+            print(stderr[-2000:] if len(stderr) > 2000 else stderr)
         return None
     return pd.read_csv(cfg["timings"]).set_index("test")["elapsed_s"].to_dict()
 
@@ -184,15 +199,28 @@ def check(result_csv, ref, lowercase_columns=False):
     if len(mismatches) == 0:
         print("✓ Results match reference")
     else:
-        ties = mismatches[
-            (mismatches["distance_x"] - mismatches["distance_y"]).abs() < 1e-6
+        missing = mismatches[mismatches["destination_y"].isna()]
+        extra = mismatches[mismatches["destination_x"].isna()]
+        valued = mismatches.drop(missing.index).drop(extra.index)
+        ties = valued[
+            (valued["distance_x"] - valued["distance_y"]).abs() < 1e-6
         ]
-        real = mismatches.drop(ties.index)
-        if len(real) == 0:
+        real = valued.drop(ties.index)
+        parts = []
+        if len(missing):
+            parts.append(f"{len(missing)} missing")
+        if len(extra):
+            parts.append(f"{len(extra)} extra")
+        if len(ties):
+            parts.append(f"{len(ties)} tie-breaking")
+        if len(real) == 0 and len(missing) == 0 and len(extra) == 0:
             print(f"✓ Results match reference ({len(ties)} tie-breaking differences)")
         else:
-            print(f"✗ {len(real)} mismatches found in {result_csv} ({len(ties)} tie-breaking)")
-            print(real.head(10).to_string())
+            print(f"✗ {len(real)} wrong results in {result_csv} ({', '.join(parts)})")
+            if len(real):
+                print(real.head(10).to_string())
+            elif len(missing):
+                print(missing.head(10).to_string())
     return mismatches
 
 

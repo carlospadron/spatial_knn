@@ -81,7 +81,9 @@ def saveCsv(table: List[(String, String, Double)], name: String) =
   writer.flush()
 
 @main def main(args: String*) =
-  val mode = args.headOption.getOrElse("both")
+  val mode = args.headOption
+    .orElse(Option(System.getenv("KNN_MODE")))
+    .getOrElse("both")
 
   val user   = Option(System.getenv("DB_USER")).getOrElse("postgres")
   val pass   = Option(System.getenv("DB_PASSWORD")).getOrElse("")
@@ -92,6 +94,7 @@ def saveCsv(table: List[(String, String, Double)], name: String) =
   val db   = DbManager(user, pass, host, port, dbName)
   val uprnTable      = Option(System.getenv("UPRN_TABLE")).getOrElse("os.open_uprn_white_horse")
   val codepointTable = Option(System.getenv("CODEPOINT_TABLE")).getOrElse("os.code_point_open_white_horse")
+  System.err.println(s"[scala-knn] mode=$mode uprn=$uprnTable codepoint=$codepointTable")
   val sql1 = s"SELECT uprn::text id, ST_AsText(geom) geom FROM $uprnTable"
   val sql2 = s"SELECT postcode id, ST_AsText(geom) geom FROM $codepointTable"
 
