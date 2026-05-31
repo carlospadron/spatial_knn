@@ -161,6 +161,7 @@ def load_all_parquet():
 def from_raw():
     _log("Initialising DuckDB with spatial extension…")
     con = duckdb.connect()
+    con.execute("INSTALL spatial")
     con.execute("LOAD spatial")
 
     csv_files = sorted(glob.glob("data/raw/osopenuprn_*.csv"))
