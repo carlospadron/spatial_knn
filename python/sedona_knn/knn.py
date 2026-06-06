@@ -35,7 +35,7 @@ knn = sedona.sql("""
             ST_Distance(A.geom, B.geom) as distance,
             row_number() OVER (
                 PARTITION BY A.uprn
-                ORDER BY A.uprn, ST_Distance(A.geom, B.geom) ASC, B.postcode
+                ORDER BY ST_Distance(A.geom, B.geom) ASC, B.postcode
             ) AS rn
         FROM
             uprn A
@@ -43,12 +43,6 @@ knn = sedona.sql("""
             codepoint B
         ON
             ST_KNN(A.geom, B.geom, 10, FALSE)
-        WHERE
-            ST_Distance(A.geom, B.geom) <= 5000
-        ORDER BY
-            A.uprn,
-            ST_Distance(A.geom, B.geom) ASC,
-            destination
     )
     SELECT origin, destination, distance FROM knn WHERE rn = 1
 """).toPandas()

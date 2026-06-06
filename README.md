@@ -71,10 +71,10 @@ Two scenarios are defined:
 
 | Dataset | UPRN table | Codepoint table | Timeout | Reference |
 |---|---|---|---|---|
-| White Horse (small) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` | none | SQL distinct |
+| White Horse (small) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` | none | Rust (strtree) |
 | Full GB (large) | `os.os_open_uprn` | `os.codepoint_polygons` | 1 hr | Rust (strtree) |
 
-For the large dataset, Rust runs first to generate the reference output (SQL distinct would take >3 hours). All other methods are limited to 1 hour; PostgreSQL queries also receive a matching `statement_timeout` so the server-side query is cancelled before the container timeout fires.
+Rust runs first to generate the reference output (SQL distinct would take >3 hours on the large dataset, and Rust is now the baseline for both scenarios). All other methods are limited to 1 hour; PostgreSQL queries also receive a matching `statement_timeout` so the server-side query is cancelled before the container timeout fires.
 
 ## Code structure
 
@@ -102,52 +102,31 @@ For the large dataset, Rust runs first to generate the reference output (SQL dis
 
 
 <!-- RESULTS_START -->
-## Results — White Horse (small)
+## Results â€” White Horse (small)
 
 | test                           | elapsed_s   |
 |:-------------------------------|:------------|
-| SQL distinct                   | 113s        |
-| SQL lateral                    | 42s         |
-| Geopandas sjoin_nearest        | 1s          |
-| Shapely all vs all             | 94s         |
-| Shapely strtree                | 1s          |
-| Scikit-Learn nearest neighbour | 19s         |
-| Apache Sedona partial sql      | 152s        |
-| Apache Sedona pure sql         | 135s        |
-| Apache Sedona st_knn           | 9s          |
-| kotlin all vs all              | 33s         |
-| kotlin strtree                 | 4s          |
-| scala all vs all               | 28s         |
-| scala strtree                  | 4s          |
-| rust all vs all                | 4s          |
-| rust strtree                   | 0.35s       |
-| C# all vs all                  | 23s         |
-| C# strtree                     | 6s          |
-| Go all vs all                  | 0.92s       |
-| Go strtree                     | 0.32s       |
-| DuckDB                         | 17s         |
-| SedonaDB                       | 0.51s       |
-| BigQuery                       | 3s          |
-| BigQuery (Slot time consumed)  | 310s        |
-| RedShift                       | 26s         |
-| Athena                         | 110s        |
-| Snowflake cartesian            | 75s         |
-| Snowflake h3                   | 45s         |
-| Databricks pure sql            | 60s         |
-| Kotlin                         | 42s         |
-| Scala                          | 34s         |
-| Rust                           | 6s          |
-| C#                             | 28s         |
-| Go                             | 3s          |
-
-## Results — Full GB (large)
-
-| test                    | elapsed_s   |
-|:------------------------|:------------|
-| Geopandas sjoin_nearest | 931s        |
-| Rust strtree            | 220s        |
-| Scala all vs all        | 18s         |
-| Scala strtree           | 3s          |
+| Rust strtree                   | 0.12s       |
+| SQL distinct                   | 176s        |
+| SQL lateral                    | 157s        |
+| Geopandas sjoin_nearest        | 0.71s       |
+| Shapely all vs all             | 115s        |
+| Shapely strtree                | 2s          |
+| Scikit-Learn nearest neighbour | 30s         |
+| Apache Sedona partial sql      | 199s        |
+| Apache Sedona pure sql         | 220s        |
+| Apache Sedona st_knn           | 48s         |
+| Kotlin all vs all              | 45s         |
+| Kotlin strtree                 | 5s          |
+| Scala all vs all               | 30s         |
+| Scala strtree                  | 6s          |
+| Rust all vs all                | 9s          |
+| C# all vs all                  | 28s         |
+| C# strtree                     | 8s          |
+| Go all vs all                  | 1s          |
+| Go strtree                     | 0.64s       |
+| DuckDB                         | 25s         |
+| SedonaDB                       | 0.93s       |
 <!-- RESULTS_END -->
 
 ![Benchmark results](results.png)

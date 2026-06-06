@@ -230,6 +230,7 @@ SCENARIOS = [
         "uprn_table": "os.open_uprn_white_horse",
         "codepoint_table": "os.code_point_open_white_horse",
         "plot_file": "results_white_horse.png",
+        "reference_csv": "rust/rust_tree.csv",
     },
     {
         "name": "Full GB (large)",
@@ -287,6 +288,18 @@ def run_scenario(scenario, solutions=None, skip_reference=False):
                 for k, v in results.items():
                     record_timing(dataset, k, v)
         reference = pd.read_csv(reference_csv)
+        if _run("sql_distinct"):
+            print("--- SQL distinct ---")
+            elapsed = run_script(
+                "sql/sql_distinct/knn.py",
+                uprn_table,
+                codepoint_table,
+                timeout=timeout,
+                statement_timeout_ms=sql_timeout_ms,
+            )
+            if elapsed is not None:
+                record_timing(dataset, "SQL distinct", elapsed)
+                check("sql/sql_distinct/result.csv", reference)
     else:
         print("--- SQL distinct ---")
         elapsed = run_script(
@@ -389,9 +402,10 @@ def run_scenario(scenario, solutions=None, skip_reference=False):
             solution_name = f"{lang}_{mode}"
             if not _run(solution_name):
                 continue
-            # Rust is pre-run as reference for the large scenario
-            if lang == "rust" and reference_csv:
-                check(cfg[csv_key], reference)
+            # Rust tree is pre-run as reference; only check if the CSV exists
+            if lang == "rust" and mode == "tree" and reference_csv:
+                if os.path.exists(cfg[csv_key]):
+                    check(cfg[csv_key], reference)
                 continue
             print(f"--- {cfg['label']} {mode} ---")
             results = _run_compiled(
