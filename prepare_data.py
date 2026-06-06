@@ -31,6 +31,7 @@ PARQUET_PATHS = {
     "cp_full": "data/codepoint_polygons.parquet",
     "uprn_wh": "data/open_uprn_white_horse.parquet",
     "cp_wh": "data/code_point_open_white_horse.parquet",
+    "wh_boundary": "data/white_horse_boundary.parquet",
 }
 
 
@@ -137,6 +138,67 @@ def load_codepoint_parquet(parquet_path, target_table, index_name, duck_con=None
     _log(f"  {target_table} loaded ({n:,} rows).")
 
 
+def load_boundary_parquet(duck_con=None):
+    _log(f"Loading {PARQUET_PATHS['wh_boundary']} → os.white_horse_boundary…")
+    con = duck_con or duckdb.connect()
+    if not duck_con:
+        _pg_attach(con)
+    con.execute(f"""
+        CREATE OR REPLACE TABLE pg.public._wh_boundary_stage AS
+        SELECT geom_wkb FROM read_parquet('{PARQUET_PATHS["wh_boundary"]}')
+    """)
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                INSERT INTO os.white_horse_boundary (geom)
+                SELECT ST_SetSRID(ST_GeomFromWKB(geom_wkb), 27700)
+                FROM _wh_boundary_stage
+            """)
+        )
+        conn.execute(text("DROP TABLE _wh_boundary_stage"))
+    _log("  White Horse boundary loaded.")
+
+
+def populate_buffer_tables():
+    """Populate 1km and 10km buffer tables from the full GB tables via PostGIS."""
+    _log("Populating buffer tables from full GB data via PostGIS…")
+    buffers = [
+        (1000,   "os.uprn_wh_1km",   "os.cp_wh_1km"),
+        (10000,  "os.uprn_wh_10km",  "os.cp_wh_10km"),
+        (100000, "os.uprn_wh_100km", "os.cp_wh_100km"),
+    ]
+    with engine.begin() as conn:
+        for buffer_m, uprn_tbl, cp_tbl in buffers:
+            _log(f"  UPRN within {buffer_m}m buffer → {uprn_tbl}…")
+            conn.execute(text(f"""
+                INSERT INTO {uprn_tbl} (uprn, easting, northing, lat, lon, geom, wkt)
+                SELECT u.uprn, u.easting, u.northing, u.lat, u.lon, u.geom, u.wkt
+                FROM os.os_open_uprn u
+                WHERE ST_DWithin(
+                    u.geom,
+                    (SELECT ST_Union(geom) FROM os.white_horse_boundary),
+                    {buffer_m}
+                )
+            """))
+            n = conn.execute(text(f"SELECT COUNT(*) FROM {uprn_tbl}")).scalar()
+            _log(f"    {n:,} rows")
+
+            _log(f"  Codepoints within {buffer_m}m buffer → {cp_tbl}…")
+            conn.execute(text(f"""
+                INSERT INTO {cp_tbl} (postcode, geom, wkt)
+                SELECT c.postcode, c.geom, c.wkt
+                FROM os.codepoint_polygons c
+                WHERE ST_DWithin(
+                    c.geom,
+                    (SELECT ST_Union(geom) FROM os.white_horse_boundary),
+                    {buffer_m}
+                )
+            """))
+            n = conn.execute(text(f"SELECT COUNT(*) FROM {cp_tbl}")).scalar()
+            _log(f"    {n:,} rows")
+    _log("Buffer tables populated.")
+
+
 def load_all_parquet():
     create_tables()
     con = duckdb.connect()
@@ -151,7 +213,9 @@ def load_all_parquet():
     load_codepoint_parquet(
         PARQUET_PATHS["cp_wh"], "os.code_point_open_white_horse", "cp_wh_gis", duck_con=con,
     )
+    load_boundary_parquet(duck_con=con)
     con.close()
+    populate_buffer_tables()
     _log("All tables loaded from Parquet.")
 
 
@@ -215,6 +279,13 @@ def from_raw():
         TO '{PARQUET_PATHS["cp_full"]}' (FORMAT PARQUET, CODEC 'ZSTD', COMPRESSION_LEVEL 19)
     """)
     _log(f"  Wrote {PARQUET_PATHS['cp_full']} ({n_cp_full:,} rows)")
+
+    _log("Writing White Horse boundary Parquet…")
+    con.execute(f"""
+        COPY (SELECT ST_AsWKB(geom) AS geom_wkb FROM _wh)
+        TO '{PARQUET_PATHS["wh_boundary"]}' (FORMAT PARQUET, CODEC 'ZSTD', COMPRESSION_LEVEL 19)
+    """)
+    _log(f"  Wrote {PARQUET_PATHS['wh_boundary']}")
 
     # ---- Spatial filter to White Horse ----
     _log("Filtering UPRN to White Horse via ST_Intersects…")

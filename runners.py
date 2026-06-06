@@ -1,6 +1,7 @@
 import csv
 import os
 import re
+import shutil
 import subprocess
 import time
 import uuid
@@ -226,18 +227,34 @@ def check(result_csv, ref, lowercase_columns=False):
 
 SCENARIOS = [
     {
-        "name": "White Horse (small)",
+        "name": "White Horse (0m buffer)",
         "uprn_table": "os.open_uprn_white_horse",
         "codepoint_table": "os.code_point_open_white_horse",
-        "plot_file": "results_white_horse.png",
-        "reference_csv": "rust/rust_tree.csv",
+        "plot_file": "results_wh_0.png",
+        "reference_csv": "rust/rust_tree_wh_0.csv",
     },
     {
-        "name": "Full GB (large)",
-        "uprn_table": "os.os_open_uprn",
-        "codepoint_table": "os.codepoint_polygons",
-        "plot_file": "results_full_gb.png",
-        "reference_csv": "rust/rust_tree.csv",
+        "name": "White Horse (1km buffer)",
+        "uprn_table": "os.uprn_wh_1km",
+        "codepoint_table": "os.cp_wh_1km",
+        "plot_file": "results_wh_1km.png",
+        "reference_csv": "rust/rust_tree_wh_1km.csv",
+        "timeout": 3600,
+    },
+    {
+        "name": "White Horse (10km buffer)",
+        "uprn_table": "os.uprn_wh_10km",
+        "codepoint_table": "os.cp_wh_10km",
+        "plot_file": "results_wh_10km.png",
+        "reference_csv": "rust/rust_tree_wh_10km.csv",
+        "timeout": 3600,
+    },
+    {
+        "name": "White Horse (100km buffer)",
+        "uprn_table": "os.uprn_wh_100km",
+        "codepoint_table": "os.cp_wh_100km",
+        "plot_file": "results_wh_100km.png",
+        "reference_csv": "rust/rust_tree_wh_100km.csv",
         "timeout": 3600,
     },
 ]
@@ -287,6 +304,7 @@ def run_scenario(scenario, solutions=None, skip_reference=False):
             if results:
                 for k, v in results.items():
                     record_timing(dataset, k, v)
+                shutil.copy(_COMPILED_LANGS["rust"]["tree_csv"], reference_csv)
         reference = pd.read_csv(reference_csv)
         if _run("sql_distinct"):
             print("--- SQL distinct ---")

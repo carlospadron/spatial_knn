@@ -49,15 +49,17 @@ All three are free to download from the [OS Data Hub](https://osdatahub.os.uk) (
 uv run --env-file .env main.py
 
 # Run a single scenario
-uv run --env-file .env main.py --scenario "White Horse (small)"
-uv run --env-file .env main.py --scenario "Full GB (large)"
+uv run --env-file .env main.py --scenario "White Horse (0m buffer)"
+uv run --env-file .env main.py --scenario "White Horse (1km buffer)"
+uv run --env-file .env main.py --scenario "White Horse (10km buffer)"
+uv run --env-file .env main.py --scenario "White Horse (100km buffer)"
 
 # Run specific solutions only (one or more)
-uv run --env-file .env main.py --scenario "Full GB (large)" --solution shapely_strtree
-uv run --env-file .env main.py --scenario "Full GB (large)" --solution rust_tree go_tree kotlin_tree
+uv run --env-file .env main.py --scenario "White Horse (100km buffer)" --solution shapely_strtree
+uv run --env-file .env main.py --scenario "White Horse (100km buffer)" --solution rust_tree go_tree kotlin_tree
 
 # Skip recomputing the reference CSV if it already exists on disk
-uv run --env-file .env main.py --scenario "Full GB (large)" --skip-reference
+uv run --env-file .env main.py --scenario "White Horse (100km buffer)" --skip-reference
 
 # Regenerate plot and README from existing baselines.csv without re-running benchmarks
 uv run --env-file .env main.py --results-only
@@ -67,14 +69,16 @@ Available solution names: `sql_distinct`, `sql_lateral`, `geopandas`, `shapely_a
 
 Each Python-based benchmark script runs inside the `spatial_knn_python` Docker container via `docker run --rm`. On timeout, `docker kill` is called — this guarantees immediate termination of the container and any in-flight work (including long-running GeoPandas or SQL operations).
 
-Two scenarios are defined:
+Three scenarios are defined, all based on buffers around the Vale of White Horse district polygon:
 
 | Dataset | UPRN table | Codepoint table | Timeout | Reference |
 |---|---|---|---|---|
-| White Horse (small) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` | none | Rust (strtree) |
-| Full GB (large) | `os.os_open_uprn` | `os.codepoint_polygons` | 1 hr | Rust (strtree) |
+| White Horse (0m buffer) | `os.open_uprn_white_horse` | `os.code_point_open_white_horse` | 1 hr | Rust (strtree) |
+| White Horse (1km buffer) | `os.uprn_wh_1km` | `os.cp_wh_1km` | 1 hr | Rust (strtree) |
+| White Horse (10km buffer) | `os.uprn_wh_10km` | `os.cp_wh_10km` | 1 hr | Rust (strtree) |
+| White Horse (100km buffer) | `os.uprn_wh_100km` | `os.cp_wh_100km` | 1 hr | Rust (strtree) |
 
-Rust runs first to generate the reference output (SQL distinct would take >3 hours on the large dataset, and Rust is now the baseline for both scenarios). All other methods are limited to 1 hour; PostgreSQL queries also receive a matching `statement_timeout` so the server-side query is cancelled before the container timeout fires.
+For each scenario Rust runs first to generate the reference output, then SQL distinct runs, then all other methods. Each per-scenario reference is saved to a unique CSV (`rust/rust_tree_wh_0.csv`, `rust/rust_tree_wh_1km.csv`, `rust/rust_tree_wh_10km.csv`) so `--skip-reference` works correctly across scenarios.
 
 ## Code structure
 
@@ -102,31 +106,57 @@ Rust runs first to generate the reference output (SQL distinct would take >3 hou
 
 
 <!-- RESULTS_START -->
-## Results — White Horse (small)
+## Results — White Horse (0m buffer)
 
 | test                           | elapsed_s   |
 |:-------------------------------|:------------|
-| Rust strtree                   | 0.12s       |
-| SQL distinct                   | 176s        |
-| SQL lateral                    | 157s        |
-| Geopandas sjoin_nearest        | 0.71s       |
-| Shapely all vs all             | 115s        |
+| Rust strtree                   | 0.11s       |
+| SQL distinct                   | 184s        |
+| SQL lateral                    | 156s        |
+| Geopandas sjoin_nearest        | 0.69s       |
+| Shapely all vs all             | 103s        |
 | Shapely strtree                | 2s          |
-| Scikit-Learn nearest neighbour | 30s         |
-| Apache Sedona partial sql      | 199s        |
-| Apache Sedona pure sql         | 220s        |
-| Apache Sedona st_knn           | 48s         |
-| Kotlin all vs all              | 45s         |
+| Scikit-Learn nearest neighbour | 25s         |
+| Apache Sedona partial sql      | 226s        |
+| Apache Sedona pure sql         | 209s        |
+| Apache Sedona st_knn           | 49s         |
+| Kotlin all vs all              | 44s         |
 | Kotlin strtree                 | 5s          |
 | Scala all vs all               | 30s         |
-| Scala strtree                  | 6s          |
-| Rust all vs all                | 9s          |
-| C# all vs all                  | 28s         |
-| C# strtree                     | 8s          |
+| Scala strtree                  | 5s          |
+| Rust all vs all                | 8s          |
+| C# all vs all                  | 25s         |
+| C# strtree                     | 7s          |
 | Go all vs all                  | 1s          |
-| Go strtree                     | 0.64s       |
-| DuckDB                         | 25s         |
-| SedonaDB                       | 0.93s       |
+| Go strtree                     | 0.52s       |
+| DuckDB                         | 21s         |
+| SedonaDB                       | 0.89s       |
+
+## Results — White Horse (1km buffer)
+
+| test                           | elapsed_s   |
+|:-------------------------------|:------------|
+| Rust strtree                   | 0.22s       |
+| SQL distinct                   | 247s        |
+| SQL lateral                    | 254s        |
+| Geopandas sjoin_nearest        | 1.00s       |
+| Shapely all vs all             | 152s        |
+| Shapely strtree                | 3s          |
+| Scikit-Learn nearest neighbour | 32s         |
+| Apache Sedona partial sql      | 257s        |
+| Apache Sedona pure sql         | 243s        |
+| Apache Sedona st_knn           | 50s         |
+| Kotlin all vs all              | 74s         |
+| Kotlin strtree                 | 6s          |
+| Scala all vs all               | 47s         |
+| Scala strtree                  | 7s          |
+| Rust all vs all                | 13s         |
+| C# all vs all                  | 38s         |
+| C# strtree                     | 9s          |
+| Go all vs all                  | 2s          |
+| Go strtree                     | 0.63s       |
+| DuckDB                         | 31s         |
+| SedonaDB                       | 1s          |
 <!-- RESULTS_END -->
 
 ![Benchmark results](results.png)
