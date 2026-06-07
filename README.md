@@ -157,6 +157,41 @@ For each scenario Rust runs first to generate the reference output, then SQL dis
 | Go strtree                     | 0.63s       |
 | DuckDB                         | 31s         |
 | SedonaDB                       | 1s          |
+
+## Results — White Horse (10km buffer)
+
+| test                           | elapsed_s   |
+|:-------------------------------|:------------|
+| Rust strtree                   | 0.95s       |
+| SQL distinct                   | 2217s       |
+| Geopandas sjoin_nearest        | 6s          |
+| Shapely all vs all             | 1232s       |
+| Shapely strtree                | 12s         |
+| Scikit-Learn nearest neighbour | 129s        |
+| Apache Sedona partial sql      | 2160s       |
+| Apache Sedona pure sql         | 2180s       |
+| Apache Sedona st_knn           | 67s         |
+| Kotlin all vs all              | 1080s       |
+| Kotlin strtree                 | 21s         |
+| Scala all vs all               | 703s        |
+| Scala strtree                  | 28s         |
+| Rust all vs all                | 192s        |
+| C# all vs all                  | 585s        |
+| C# strtree                     | 38s         |
+| Go all vs all                  | 28s         |
+| Go strtree                     | 3s          |
+| DuckDB                         | 322s        |
+| SedonaDB                       | 5s          |
+
+## Results — White Horse (100km buffer)
+
+| test                    | elapsed_s   |
+|:------------------------|:------------|
+| Rust strtree            | 88s         |
+| Geopandas sjoin_nearest | 755s        |
+| Scala strtree           | 1866s       |
+| C# strtree              | 1545s       |
+| Go strtree              | 157s        |
 <!-- RESULTS_END -->
 
 ![Benchmark results](results.png)

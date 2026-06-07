@@ -457,10 +457,14 @@ def make_plot(baselines, filename="results.png"):
     datasets = df["dataset"].unique()
     colors = ["steelblue", "coral"]
 
-    fig, axes = plt.subplots(1, len(datasets), figsize=(14 * len(datasets) // 2, 10), squeeze=False)
+    n = len(datasets)
+    ncols = 2 if n > 2 else max(1, n)
+    nrows = (n + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(8 * ncols, 5 * nrows), squeeze=False)
+    flat_axes = axes.flatten()
 
     for i, dataset in enumerate(datasets):
-        ax = axes[0][i]
+        ax = flat_axes[i]
         color = colors[i % len(colors)]
         sub = df[df["dataset"] == dataset].copy()
         sub = sub[sub["elapsed_s"] > 0].sort_values("elapsed_s", ascending=True)
@@ -487,8 +491,11 @@ def make_plot(baselines, filename="results.png"):
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.0f}s"))
         ax.set_xlim(0, max_val * 1.2)
 
+    for ax in flat_axes[len(datasets):]:
+        ax.set_visible(False)
+
     fig.suptitle("KNN benchmark — time by method (lower is better)", fontsize=13)
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.savefig(filename, dpi=150)
     plt.close()
     print(f"Saved plot: {filename}")
