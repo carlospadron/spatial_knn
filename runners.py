@@ -459,7 +459,9 @@ def make_plot(baselines, filename="results.png"):
 
     fig, axes = plt.subplots(1, len(datasets), figsize=(14 * len(datasets) // 2, 10), squeeze=False)
 
-    for ax, dataset, color in zip(axes[0], datasets, colors):
+    for i, dataset in enumerate(datasets):
+        ax = axes[0][i]
+        color = colors[i % len(colors)]
         sub = df[df["dataset"] == dataset].copy()
         sub = sub[sub["elapsed_s"] > 0].sort_values("elapsed_s", ascending=True)
         tests = list(sub["test"])
