@@ -4,45 +4,60 @@ using NetTopologySuite.Index.Strtree;
 using NetTopologySuite.IO;
 using Npgsql;
 
-var env = File.ReadAllLines(".env")
-    .Where(l => !string.IsNullOrWhiteSpace(l) && !l.StartsWith('#'))
-    .Select(l => l.Split('=', 2))
-    .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
+const double MaxDistance = 5000.0;
 
-var user = env["DB_USER"];
-var pass = env["DB_PASSWORD"];
+var mode = args.Length > 0 ? args[0] : "both";
 
-var db = new DbManager(user, pass, "localhost", "gis");
-var sql1 = """SELECT uprn::text id, ST_AsText(geom) geom FROM os.open_uprn_white_horse""";
-var sql2 = """SELECT postcode id, ST_AsText(geom) geom FROM os.code_point_open_white_horse""";
+var user = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
+var pass = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "";
+var host = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "gis";
+
+var db = new DbManager(user, pass, host, dbName);
+var uprnTable = Environment.GetEnvironmentVariable("UPRN_TABLE") ?? "os.open_uprn_white_horse";
+var codepointTable = Environment.GetEnvironmentVariable("CODEPOINT_TABLE") ?? "os.code_point_open_white_horse";
+var sql1 = $"SELECT uprn::text id, ST_AsText(geom) geom FROM {uprnTable}";
+var sql2 = $"SELECT postcode id, ST_AsText(geom) geom FROM {codepointTable}";
 
 var uprn = db.GetTable(sql1);
 var codepoint = db.GetTable(sql2);
 
-var sw = Stopwatch.StartNew();
-var out1 = NearestNeighbour(uprn, codepoint); // ~22sec
-sw.Stop();
-SaveCsv(out1, "csharp_all_vs_all.csv");
-Console.WriteLine(sw.Elapsed);
+var timingsLines = new List<string> { "test,elapsed_s" };
 
-sw.Restart();
-var out2 = NearestNeighbour2(uprn, codepoint); // ~3.6sec
-sw.Stop();
-SaveCsv(out2, "csharp_tree.csv");
-Console.WriteLine(sw.Elapsed);
+if (mode is "brute" or "both")
+{
+    var sw = Stopwatch.StartNew();
+    var out1 = NearestNeighbour(uprn, codepoint);
+    sw.Stop();
+    SaveCsv(out1, "csharp_all_vs_all.csv");
+    timingsLines.Add($"C# all vs all,{sw.Elapsed.TotalSeconds}");
+}
+
+if (mode is "tree" or "both")
+{
+    var sw = Stopwatch.StartNew();
+    var out2 = NearestNeighbour2(uprn, codepoint);
+    sw.Stop();
+    SaveCsv(out2, "csharp_tree.csv");
+    timingsLines.Add($"C# strtree,{sw.Elapsed.TotalSeconds}");
+}
+
+File.WriteAllLines("csharp/timings.csv", timingsLines);
 
 static Dictionary<string, (string, double)> NearestNeighbour(
     Dictionary<string, Geometry> geomA,
     Dictionary<string, Geometry> geomB)
 {
     // for each geometry a get entry of b with the lowest distance, then compute dist to save map
-    return geomA.ToDictionary(
-        a => a.Key,
-        a =>
-        {
-            var knn = geomB.MinBy(b => (a.Value.Distance(b.Value), b.Key))!;
-            return (knn.Key, a.Value.Distance(knn.Value));
-        });
+    var result = new Dictionary<string, (string, double)>();
+    foreach (var a in geomA)
+    {
+        var knn = geomB.MinBy(b => (a.Value.Distance(b.Value), b.Key))!;
+        var dist = a.Value.Distance(knn.Value);
+        if (dist <= MaxDistance)
+            result[a.Key] = (knn.Key, dist);
+    }
+    return result;
 }
 
 static Dictionary<string, (string, double)> NearestNeighbour2(
@@ -58,16 +73,19 @@ static Dictionary<string, (string, double)> NearestNeighbour2(
     foreach (var (key, g) in geomB)
         geomBReverse[g] = key;
 
-    return geomA.ToDictionary(
-        a => a.Key,
-        a =>
+    return geomA.Select(a =>
         {
             var knnGeom = tree.NearestNeighbour(a.Value.EnvelopeInternal, a.Value, new GeometryItemDistance(), 100);
             var knn = knnGeom
                 .Select(g => (geomBReverse[g], a.Value.Distance(g)))
-                .MinBy(x => (x.Item2, x.Item1))!;
-            return knn;
-        });
+                .Aggregate((best, cur) =>
+                    Math.Abs(cur.Item2 - best.Item2) < 1e-9
+                        ? (string.Compare(cur.Item1, best.Item1, StringComparison.Ordinal) < 0 ? cur : best)
+                        : (cur.Item2 < best.Item2 ? cur : best));
+            return (a.Key, knn);
+        })
+        .Where(x => x.knn.Item2 <= MaxDistance)
+        .ToDictionary(x => x.Key, x => x.knn);
 }
 
 static void SaveCsv(Dictionary<string, (string, double)> table, string name)

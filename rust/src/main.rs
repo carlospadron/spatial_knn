@@ -34,9 +34,11 @@ fn db_manager(
     geom
 }
 
+const MAX_DISTANCE: f64 = 5000.0;
+
 fn nearest_neighbour(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Point>) -> HashMap<String, (String, f64)>
 {
-    geoma.iter().map(
+    geoma.iter().filter_map(
         |(uprn, point1)| {
             let min = geomb.iter().min_by(
                 |(postcode, point2), (postcode2, point22)| {
@@ -44,29 +46,38 @@ fn nearest_neighbour(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Poi
                     let distb = point1.euclidean_distance(*point22);
                     (dista, postcode).partial_cmp(&(distb, &postcode2)).unwrap()
                 }).unwrap();
-            (uprn.clone(), (min.0.clone(), point1.euclidean_distance(min.1)))
+            let dist = point1.euclidean_distance(min.1);
+            if dist > MAX_DISTANCE { return None; }
+            Some((uprn.clone(), (min.0.clone(), dist)))
         }
     ).collect()
 }
 
 fn nearest_neighbour2(geoma: &HashMap<String, Point>, geomb: &HashMap<String, Point>) -> HashMap<String, (String, f64)>
 {
-    let geomb2 = geomb.clone();
-    let tree_a: RTree<Point<_>> = RTree::bulk_load(geomb2.into_values().collect::<Vec<_>>());
-    geoma.iter().map(
+    let mut reverse: HashMap<[u64; 2], Vec<&String>> = HashMap::new();
+    for (name, pt) in geomb.iter() {
+        reverse.entry([pt.x().to_bits(), pt.y().to_bits()])
+            .or_default()
+            .push(name);
+    }
+    let tree: RTree<Point<_>> = RTree::bulk_load(geomb.values().cloned().collect::<Vec<_>>());
+    geoma.iter().filter_map(
         |(uprn, point)| {
-            let nearest = tree_a.nearest_neighbors(&point);
-            let postcodes: Vec<&String> = nearest.iter().map(
-                |point2|
-                    geomb
-                        .iter()
-                        .find(|(_s, p)| p == point2)
-                        .unwrap()
-                        .0
-            ).collect();
-
-            let postcode = *postcodes.iter().min().unwrap();
-            (uprn.clone(), (postcode.clone(), point.euclidean_distance(geomb.get(postcode).unwrap())))
+            let mut nearest_iter = tree.nearest_neighbor_iter(point);
+            let first = nearest_iter.next().unwrap();
+            let min_dist = point.euclidean_distance(first);
+            if min_dist > MAX_DISTANCE { return None; }
+            let mut candidates: Vec<&String> = reverse[&[first.x().to_bits(), first.y().to_bits()]].clone();
+            for pt in nearest_iter {
+                let d = point.euclidean_distance(pt);
+                if d - min_dist > 1e-9 {
+                    break;
+                }
+                candidates.extend(&reverse[&[pt.x().to_bits(), pt.y().to_bits()]]);
+            }
+            let postcode = candidates.iter().min().unwrap();
+            Some((uprn.clone(), ((*postcode).clone(), min_dist)))
         }
     ).collect()
 }
@@ -86,25 +97,39 @@ fn write_csv(output: HashMap<String, (String, f64)>, path: String) -> Result<(),
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("both");
+
     let user = std::env::var("DB_USER").unwrap_or_else(|_| "postgres".to_string());
     let password = std::env::var("DB_PASSWORD").unwrap_or_else(|_| "".to_string());
     let host = std::env::var("DB_HOST").unwrap_or_else(|_| "localhost".to_string());
     let db = std::env::var("DB_NAME").unwrap_or_else(|_| "gis".to_string());
 
-    let sql = "SELECT uprn::text, ST_AsText(geom) FROM os.open_uprn_white_horse";
+    let uprn_table = std::env::var("UPRN_TABLE").unwrap_or_else(|_| "os.open_uprn_white_horse".to_string());
+    let codepoint_table = std::env::var("CODEPOINT_TABLE").unwrap_or_else(|_| "os.code_point_open_white_horse".to_string());
+    let sql = format!("SELECT uprn::text, ST_AsText(geom) FROM {}", uprn_table);
     let uprn = db_manager(&user, &password, &host, &db, &sql);
-    let sql = "SELECT postcode, ST_AsText(geom) FROM os.code_point_open_white_horse";
+    let sql = format!("SELECT postcode, ST_AsText(geom) FROM {}", codepoint_table);
     let codepoint = db_manager(&user, &password, &host, &db, &sql);
 
-    let start = Instant::now();
-    let output = nearest_neighbour(&uprn, &codepoint);
-    let duration = start.elapsed();
-    write_csv(output, "rust_all_vs_all.csv".to_owned()).unwrap();
-    println!("Time elapsed is: {:?}", duration);
+    let mut wtr = Writer::from_path("timings.csv").unwrap();
+    wtr.write_record(&["test", "elapsed_s"]).unwrap();
 
-    let start = Instant::now();
-    let output = nearest_neighbour2(&uprn, &codepoint);
-    let duration = start.elapsed();
-    write_csv(output, "rust_tree.csv".to_owned()).unwrap();
-    println!("Time elapsed is: {:?}", duration);
+    if mode == "brute" || mode == "both" {
+        let start = Instant::now();
+        let output = nearest_neighbour(&uprn, &codepoint);
+        let duration = start.elapsed();
+        write_csv(output, "rust_all_vs_all.csv".to_owned()).unwrap();
+        wtr.write_record(&["Rust all vs all", &duration.as_secs_f64().to_string()]).unwrap();
+    }
+
+    if mode == "tree" || mode == "both" {
+        let start = Instant::now();
+        let output = nearest_neighbour2(&uprn, &codepoint);
+        let duration = start.elapsed();
+        write_csv(output, "rust_tree.csv".to_owned()).unwrap();
+        wtr.write_record(&["Rust strtree", &duration.as_secs_f64().to_string()]).unwrap();
+    }
+
+    wtr.flush().unwrap();
 }

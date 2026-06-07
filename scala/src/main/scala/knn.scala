@@ -6,6 +6,9 @@ import java.io.{BufferedWriter, File, FileWriter}
 import java.sql.{DriverManager, SQLException}
 import java.util.Locale
 import scala.collection.immutable.HashMap
+
+val MaxDistance = 5000.0
+
 class DbManager(
                  user: String,
                  pass: String,
@@ -35,10 +38,11 @@ class DbManager(
 def nearestNeighbour(geoma: Map[String, Geometry], geomb: Map[String, Geometry]) =
   //for each geometry a get entry of b with the lowest distance, then compute dist to save map
   geoma
-    .map(
+    .flatMap(
       x =>
         val knn = geomb.minBy(b => (x._2.distance(b._2), b._1))
-        (x._1 , knn._1, x._2.distance(knn._2))
+        val d = x._2.distance(knn._2)
+        if d > MaxDistance then None else Some((x._1, knn._1, d))
     )
     .toList
 
@@ -53,10 +57,15 @@ def nearestNeighbour2(geoma: Map[String, Geometry], geomb: Map[String, Geometry]
   geoma.map (
     x =>
       val knnGeom = t.nearestNeighbour(x._2.getEnvelopeInternal, x._2, GeometryItemDistance(), 100).toList.asInstanceOf[List[Geometry]]
-      val knn = knnGeom.map(y => (geomb2(y), x._2.distance(y))).minBy((x,y) => (y, x))
+      val knn = knnGeom.map(y => (geomb2(y), x._2.distance(y))).reduceLeft { (a, b) =>
+        if math.abs(a._2 - b._2) < 1e-9 then
+          if a._1 < b._1 then a else b
+        else if a._2 < b._2 then a else b
+      }
 
-      (x._1, knn._1, knn._2)
+      if knn._2 > MaxDistance then None else Some((x._1, knn._1, knn._2))
     )
+    .flatten
     .toList
 
 def saveCsv(table: List[(String, String, Double)], name: String) =
@@ -71,7 +80,11 @@ def saveCsv(table: List[(String, String, Double)], name: String) =
   )
   writer.flush()
 
-@main def main() =
+@main def main(args: String*) =
+  val mode = args.headOption
+    .orElse(Option(System.getenv("KNN_MODE")))
+    .getOrElse("both")
+
   val user   = Option(System.getenv("DB_USER")).getOrElse("postgres")
   val pass   = Option(System.getenv("DB_PASSWORD")).getOrElse("")
   val host   = Option(System.getenv("DB_HOST")).getOrElse("localhost")
@@ -79,20 +92,33 @@ def saveCsv(table: List[(String, String, Double)], name: String) =
   val dbName = Option(System.getenv("DB_NAME")).getOrElse("gis")
 
   val db   = DbManager(user, pass, host, port, dbName)
-  val sql1 = """SELECT uprn::text id, ST_AsText(geom) geom FROM os.open_uprn_white_horse"""
-  val sql2 = """SELECT postcode id, ST_AsText(geom) geom FROM os.code_point_open_white_horse"""
+  val uprnTable      = Option(System.getenv("UPRN_TABLE")).getOrElse("os.open_uprn_white_horse")
+  val codepointTable = Option(System.getenv("CODEPOINT_TABLE")).getOrElse("os.code_point_open_white_horse")
+  System.err.println(s"[scala-knn] mode=$mode uprn=$uprnTable codepoint=$codepointTable")
+  val sql1 = s"SELECT uprn::text id, ST_AsText(geom) geom FROM $uprnTable"
+  val sql2 = s"SELECT postcode id, ST_AsText(geom) geom FROM $codepointTable"
 
   val uprn      = db.getTable(sql1)
   val codepoint = db.getTable(sql2)
 
-  val startTime = System.currentTimeMillis()
-  val out1 = nearestNeighbour(uprn, codepoint)
-  val endTime = System.currentTimeMillis()
-  saveCsv(out1, "scala_all_vs_all.csv")
-  println(s"all vs all: ${endTime - startTime}ms")
+  val timingsWriter = BufferedWriter(FileWriter(File("timings.csv")))
+  timingsWriter.write("test,elapsed_s")
+  timingsWriter.newLine()
 
-  val startTime2 = System.currentTimeMillis()
-  val out2 = nearestNeighbour2(uprn, codepoint)
-  val endTime2 = System.currentTimeMillis()
-  saveCsv(out2, "scala_tree.csv")
-  println(s"strtree: ${endTime2 - startTime2}ms")
+  if mode == "brute" || mode == "both" then
+    val startTime = System.currentTimeMillis()
+    val out1 = nearestNeighbour(uprn, codepoint)
+    val endTime = System.currentTimeMillis()
+    saveCsv(out1, "scala_all_vs_all.csv")
+    timingsWriter.write(s"Scala all vs all,${(endTime - startTime) / 1000.0}")
+    timingsWriter.newLine()
+
+  if mode == "tree" || mode == "both" then
+    val startTime = System.currentTimeMillis()
+    val out2 = nearestNeighbour2(uprn, codepoint)
+    val endTime = System.currentTimeMillis()
+    saveCsv(out2, "scala_tree.csv")
+    timingsWriter.write(s"Scala strtree,${(endTime - startTime) / 1000.0}")
+    timingsWriter.newLine()
+
+  timingsWriter.flush()

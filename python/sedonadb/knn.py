@@ -1,28 +1,29 @@
-import os
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import geopandas as gpd
 import pandas as pd
 from sedona.db import connect
-from sqlalchemy import create_engine
 
-user = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST", "localhost")
-port = os.getenv("DB_PORT", "5432")
-database = os.getenv("DB_NAME", "gis")
-engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
+from knn_common import get_engine, get_parser
+
+args = get_parser().parse_args()
+uprn_table = args.uprn_table
+codepoint_table = args.codepoint_table
+engine = get_engine()
 
 sd = connect()
 
 # Load data outside the timed section (consistent with other scripts)
 uprn = gpd.read_postgis(
-    "SELECT uprn::text AS uprn, geom FROM os.open_uprn_white_horse",
+    f"SELECT uprn::text AS uprn, geom FROM {uprn_table}",
     engine,
     geom_col="geom",
 )
 codepoint = gpd.read_postgis(
-    "SELECT postcode, geom FROM os.code_point_open_white_horse ORDER BY postcode",
+    f"SELECT postcode, geom FROM {codepoint_table} ORDER BY postcode",
     engine,
     geom_col="geom",
 )
@@ -37,13 +38,14 @@ knn = sd.sql("""
         SELECT
             u.uprn      AS origin,
             c.postcode  AS destination,
-            ST_Distance(u.geom, c.geom) AS distance,
+            round(ST_Distance(u.geom, c.geom), 2) AS distance,
             row_number() OVER (
                 PARTITION BY u.uprn
-                ORDER BY ST_Distance(u.geom, c.geom) ASC, c.postcode
+                ORDER BY round(ST_Distance(u.geom, c.geom), 2) ASC, c.postcode
             ) AS rn
         FROM uprn u
         JOIN codepoint c ON ST_KNN(u.geom, c.geom, 10, FALSE)
+        WHERE ST_Distance(u.geom, c.geom) <= 5000
     )
     SELECT origin, destination, distance FROM knn WHERE rn = 1
 """).to_pandas()

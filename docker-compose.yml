@@ -9,9 +9,29 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: gis
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - knn
+
+  python:
+    build:
+      context: .
+      dockerfile: python.Dockerfile
+    image: spatial_knn_python
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    networks:
+      - knn
+    mem_limit: 24g
 
   sedona:
     build:
@@ -23,12 +43,16 @@ services:
     env_file: .env
     environment:
       DB_HOST: postgres
+      DB_PORT: "5432"
     ports:
       - "8888:8888"
       - "4040:4040"   # Spark UI
     volumes:
       - .:/home/jovyan/work
     working_dir: /home/jovyan/work
+    networks:
+      - knn
+    mem_limit: 24g
 
   kotlin:
     image: maven:3-eclipse-temurin-21
@@ -38,10 +62,14 @@ services:
     env_file: .env
     environment:
       DB_HOST: postgres
+      DB_PORT: "5432"
     volumes:
       - .:/workspace
       - maven_cache:/root/.m2
     working_dir: /workspace/kotlin
+    networks:
+      - knn
+    mem_limit: 24g
 
   scala:
     image: sbtscala/scala-sbt:eclipse-temurin-21.0.8_9_1.12.6_3.3.7
@@ -50,12 +78,72 @@ services:
     env_file: .env
     environment:
       DB_HOST: postgres
+      DB_PORT: "5432"
+      SBT_OPTS: "-Xmx16g"
     volumes:
       - .:/workspace
       - sbt_cache:/root/.cache
     working_dir: /workspace/scala
+    networks:
+      - knn
+    mem_limit: 24g
+
+  rust:
+    image: rust:1-slim
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    volumes:
+      - .:/workspace
+      - cargo_cache:/usr/local/cargo/registry
+    working_dir: /workspace/rust
+    networks:
+      - knn
+    mem_limit: 24g
+
+  csharp:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    volumes:
+      - .:/workspace
+      - nuget_cache:/root/.nuget
+    working_dir: /workspace
+    networks:
+      - knn
+    mem_limit: 24g
+
+  go:
+    image: golang:1.22
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    volumes:
+      - .:/workspace
+      - go_cache:/root/go/pkg/mod
+    working_dir: /workspace/go
+    networks:
+      - knn
+    mem_limit: 24g
+
+networks:
+  knn:
+    name: spatial_knn
 
 volumes:
   postgres_data:
   maven_cache:
   sbt_cache:
+  cargo_cache:
+  nuget_cache:
+  go_cache:

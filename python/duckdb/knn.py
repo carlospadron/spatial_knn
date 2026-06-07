@@ -1,30 +1,34 @@
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import duckdb
 import pandas as pd
 
-user = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST", "localhost")
-port = os.getenv("DB_PORT", "5432")
-database = os.getenv("DB_NAME", "gis")
+from knn_common import get_db_params, get_parser
+
+args = get_parser().parse_args()
+db = get_db_params()
+uprn_table = args.uprn_table
+codepoint_table = args.codepoint_table
 
 con = duckdb.connect()
 con.execute("INSTALL spatial; LOAD spatial;")
 con.execute("INSTALL postgres; LOAD postgres;")
 con.execute(
-    f"ATTACH 'host={host} port={port} dbname={database} user={user} password={password}' "
-    "AS pg (TYPE postgres, READ_ONLY);"
+    "ATTACH 'host={host} port={port} dbname={database} user={user} password={password}' "
+    "AS pg (TYPE postgres, READ_ONLY);".format(**db)
 )
 
 # Load into local DuckDB tables (outside timing, consistent with other scripts)
-con.execute("""
+con.execute(f"""
     CREATE TABLE uprn AS
-    SELECT uprn::text AS uprn, geom FROM pg.os.open_uprn_white_horse
+    SELECT uprn::text AS uprn, geom FROM pg.{uprn_table}
 """)
-con.execute("""
+con.execute(f"""
     CREATE TABLE codepoint AS
-    SELECT postcode, geom FROM pg.os.code_point_open_white_horse
+    SELECT postcode, geom FROM pg.{codepoint_table}
 """)
 
 # R-tree index accelerates bounding-box joins (&&); DuckDB does NOT use it for

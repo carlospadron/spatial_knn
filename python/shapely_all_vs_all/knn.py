@@ -1,48 +1,43 @@
-import os
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import geopandas as gpd
 import pandas as pd
-from sqlalchemy import create_engine
 
-user = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST", "localhost")
-port = os.getenv("DB_PORT", "5432")
-database = os.getenv("DB_NAME", "gis")
-engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
+from knn_common import get_engine, get_parser
 
-uprn = gpd.read_postgis(
-    "SELECT uprn, geom FROM os.open_uprn_white_horse", engine, geom_col="geom"
-)
+args = get_parser().parse_args()
+uprn_table = args.uprn_table
+codepoint_table = args.codepoint_table
+engine = get_engine()
+
+uprn = gpd.read_postgis(f"SELECT uprn, geom FROM {uprn_table}", engine, geom_col="geom")
 codepoint = gpd.read_postgis(
-    "SELECT postcode, geom FROM os.code_point_open_white_horse", engine, geom_col="geom"
+    f"SELECT postcode, geom FROM {codepoint_table}", engine, geom_col="geom"
 )
 
 
 def nearest_neighbour(geoma, geomb, maxdist):
-    combinations = [
-        geomb[geomb.intersects(i.buffer(maxdist))].distance(i).idxmin() for i in geoma
-    ]
-    return pd.DataFrame(
-        {
-            "origin": [i[0] for i in geoma.items()],
-            "destination": combinations,
-            "distance": [
-                i.distance(geomb[combinations[n]]) for n, i in enumerate(geoma)
-            ],
-        }
-    )
+    results = []
+    for idx, geom in geoma.items():
+        nearby = geomb[geomb.intersects(geom.buffer(maxdist))].distance(geom)
+        if nearby.empty:
+            continue
+        best = nearby.idxmin()
+        results.append((idx, best, nearby[best]))
+    return pd.DataFrame(results, columns=["origin_idx", "destination", "distance"])
 
 
 t1 = pd.Timestamp.now()
 
 knn = nearest_neighbour(uprn.geometry, codepoint.sort_values("postcode").geometry, 5000)
-knn = uprn[["uprn"]].assign(
-    destination=codepoint.iloc[knn["destination"]]["postcode"].to_list(),
-    distance=knn.distance.to_list(),
-)
-knn.columns = ["origin", "destination", "distance"]
+knn = pd.DataFrame({
+    "origin": uprn.iloc[knn["origin_idx"]]["uprn"].to_list(),
+    "destination": codepoint.iloc[knn["destination"]]["postcode"].to_list(),
+    "distance": knn["distance"].to_list(),
+})
 
 t2 = pd.Timestamp.now()
 

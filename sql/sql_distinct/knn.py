@@ -1,21 +1,36 @@
-import os
+import sys
 from pathlib import Path
 
-import pandas as pd
-from sqlalchemy import create_engine
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-user = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST", "localhost")
-port = os.getenv("DB_PORT", "5432")
-database = os.getenv("DB_NAME", "gis")
-engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{database}")
+import pandas as pd
+
+from knn_common import get_engine, get_parser
+
+parser = get_parser()
+parser.add_argument(
+    "--statement-timeout",
+    type=int,
+    default=0,
+    help="PostgreSQL statement_timeout in milliseconds (0 = no limit)",
+)
+args = parser.parse_args()
+uprn_table = args.uprn_table
+codepoint_table = args.codepoint_table
+engine = get_engine()
 
 t1 = pd.Timestamp.now()
 
 conn = engine.raw_connection()
 cursor = conn.cursor()
-cursor.execute("""
+if args.statement_timeout:
+    cursor.execute("SET statement_timeout = %s", (args.statement_timeout,))
+cursor.execute(f"""
+    CREATE INDEX IF NOT EXISTS idx_{codepoint_table.split('.')[-1]}_geom
+    ON {codepoint_table} USING gist (geom);
+""")
+conn.commit()
+cursor.execute(f"""
     DROP TABLE IF EXISTS os.knn;
     WITH knn AS (
         SELECT DISTINCT ON (A.uprn)
@@ -23,8 +38,8 @@ cursor.execute("""
             B.postcode as destination,
             round(ST_Distance(A.geom, B.geom)::numeric, 2) as distance
         FROM
-            os.open_uprn_white_horse as A,
-            os.code_point_open_white_horse as B
+            {uprn_table} as A,
+            {codepoint_table} as B
         WHERE
             ST_DWithin(A.geom, B.geom, 5000)
         ORDER BY

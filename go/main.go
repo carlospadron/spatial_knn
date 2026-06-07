@@ -68,9 +68,11 @@ type result struct {
 	distance            float64
 }
 
+const maxDistance = 5000.0
+
 func allVsAll(uprn, codepoint []entry) []result {
-	results := make([]result, len(uprn))
-	for i, u := range uprn {
+	var results []result
+	for _, u := range uprn {
 		bestDist := math.Inf(1)
 		bestID := ""
 		for _, c := range codepoint {
@@ -80,7 +82,9 @@ func allVsAll(uprn, codepoint []entry) []result {
 				bestID = c.id
 			}
 		}
-		results[i] = result{u.id, bestID, bestDist}
+		if bestDist <= maxDistance {
+			results = append(results, result{u.id, bestID, bestDist})
+		}
 	}
 	return results
 }
@@ -97,11 +101,11 @@ func strtreeKNN(uprn, codepoint []entry) []result {
 		tr.Insert(pt, pt, item{c.id, c.geom})
 	}
 
-	results := make([]result, len(uprn))
-	for i, u := range uprn {
+	var results []result
+	for _, u := range uprn {
 		pt := [2]float64{u.geom.x, u.geom.y}
-		bestDist := math.Inf(1)
-		bestDistSq := math.Inf(1) // BoxDist returns squared distance; keep separate for cutoff
+		bestDist := maxDistance
+		bestDistSq := maxDistance * maxDistance
 		bestID := ""
 		tr.Nearby(
 			rtree.BoxDist[float64, item](pt, pt, nil),
@@ -112,7 +116,7 @@ func strtreeKNN(uprn, codepoint []entry) []result {
 				}
 				dSq := distSq(u.geom, c.geom)
 				d := math.Sqrt(dSq)
-				if d < bestDist || (d == bestDist && c.id < bestID) {
+					if d < bestDist || (math.Abs(d-bestDist) < 1e-9 && c.id < bestID) {
 					bestDist = d
 					bestDistSq = dSq // use raw sum-of-squares, not d*d, to avoid sqrt roundtrip error
 					bestID = c.id
@@ -120,7 +124,9 @@ func strtreeKNN(uprn, codepoint []entry) []result {
 				return true
 			},
 		)
-		results[i] = result{u.id, bestID, bestDist}
+		if bestID != "" {
+			results = append(results, result{u.id, bestID, bestDist})
+		}
 	}
 	return results
 }
@@ -157,16 +163,42 @@ func main() {
 
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, dbName)
 
-	uprn := fetchData(connStr, "SELECT uprn::text, ST_AsText(geom) FROM os.open_uprn_white_horse")
-	codepoint := fetchData(connStr, "SELECT postcode, ST_AsText(geom) FROM os.code_point_open_white_horse ORDER BY postcode")
+	uprnTable := os.Getenv("UPRN_TABLE")
+	if uprnTable == "" {
+		uprnTable = "os.open_uprn_white_horse"
+	}
+	codepointTable := os.Getenv("CODEPOINT_TABLE")
+	if codepointTable == "" {
+		codepointTable = "os.code_point_open_white_horse"
+	}
+	uprn := fetchData(connStr, "SELECT uprn::text, ST_AsText(geom) FROM "+uprnTable)
+	codepoint := fetchData(connStr, "SELECT postcode, ST_AsText(geom) FROM "+codepointTable+" ORDER BY postcode")
 
-	t1 := time.Now()
-	out1 := allVsAll(uprn, codepoint)
-	fmt.Println(time.Since(t1))
-	saveCsv(out1, "go_all_vs_all.csv")
+	mode := "both"
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
+	}
 
-	t2 := time.Now()
-	out2 := strtreeKNN(uprn, codepoint)
-	fmt.Println(time.Since(t2))
-	saveCsv(out2, "go_tree.csv")
+	tf, err := os.Create("timings.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer tf.Close()
+	fmt.Fprintln(tf, "test,elapsed_s")
+
+	if mode == "brute" || mode == "both" {
+		t1 := time.Now()
+		out1 := allVsAll(uprn, codepoint)
+		d1 := time.Since(t1)
+		saveCsv(out1, "go_all_vs_all.csv")
+		fmt.Fprintf(tf, "Go all vs all,%f\n", d1.Seconds())
+	}
+
+	if mode == "tree" || mode == "both" {
+		t2 := time.Now()
+		out2 := strtreeKNN(uprn, codepoint)
+		d2 := time.Since(t2)
+		saveCsv(out2, "go_tree.csv")
+		fmt.Fprintf(tf, "Go strtree,%f\n", d2.Seconds())
+	}
 }
